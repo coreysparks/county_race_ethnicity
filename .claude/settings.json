@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s \"https://api.census.gov/data/2023/acs/acs5/profile/variables.json\")",
+      "WebFetch(domain:api.census.gov)",
+      "WebFetch(domain:data.census.gov)",
+      "WebSearch",
+      "WebFetch(domain:www.census.gov)",
+      "WebFetch(domain:michaelminn.net)",
+      "WebFetch(domain:www.huduser.gov)",
+      "WebFetch(domain:censusreporter.org)",
+      "WebFetch(domain:discover.pbcgov.org)",
+      "WebFetch(domain:planning.maryland.gov)",
+      "Bash(curl -s --max-time 30 \"https://api.census.gov/data/2017/acs/acs5/profile/groups/DP02.json\")",
+      "Bash(curl -s --max-time 45 \"https://api.census.gov/data/2023/acs/acs5/profile/groups/DP02.json\")",
+      "Bash(curl -v --max-time 45 \"https://api.census.gov/data/2023/acs/acs5/profile/groups/DP02.json\")",
+      "WebFetch(domain:app-phs.hmc.psu.edu)",
+      "WebFetch(domain:jtleider.github.io)",
+      "WebFetch(domain:bentonfranklintrends.org)",
+      "WebFetch(domain:hrs.isr.umich.edu)",
+      "WebFetch(domain:gisrevprxy.seattle.gov)",
+      "WebFetch(domain:www2.census.gov)",
+      "WebFetch(domain:www.ers.usda.gov)"
+    ]
+  }
+}

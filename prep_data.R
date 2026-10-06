@@ -1,12 +1,13 @@
 #!/usr/bin/env Rscript
 # prep_data.R
 # Pulls ACS 5-year race/ethnicity, nativity/citizenship, and total population
-# estimates for all US counties from DP05 and DP02 data profile tables via
+# estimates for all US counties from the DP05 and DP02 data profile tables via
 # tidycensus, merges USDA Rural-Urban Continuum Codes, and saves a wide-format
-# parquet file.
+# parquet file for one ACS end year.
 #
-# Run once before launching app.R:
-#   source("prep_data.R")
+# Usage (from the project directory):
+#   Rscript prep_data.R          # uses YEAR below
+#   Rscript prep_data.R 2013     # any end year in data/acs_profile_lookup.csv (2009–2024)
 #
 # Requires a Census API key. If you don't have one, register at:
 #   https://api.census.gov/data/key_signup.html
@@ -14,7 +15,6 @@
 
 library(tidycensus)
 library(dplyr)
-library(tidyr)
 library(arrow)
 library(readr)
 
@@ -24,345 +24,224 @@ library(readr)
 YEAR   <- 2024   # End year of 5-year ACS (2020–2024)
 SURVEY <- "acs5"
 
-# ---------------------------------------------------------------------------
-# Steps 1 & 2 — Resolve variable IDs dynamically via load_variables()
-# ---------------------------------------------------------------------------
-# Variable IDs in DP05/DP02 shift between ACS release years. We look up the
-# correct IDs by matching label text so the script works for any year without
-# manual edits. Hardcoded 2023-validated IDs are used only if the API is down.
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) > 0) YEAR <- as.integer(args[1])
+if (is.na(YEAR)) stop("YEAR must be a 4-digit ACS end year, e.g. Rscript prep_data.R 2023")
 
-# Helper: extract the last !! segment of a hierarchical ACS label
-last_seg <- function(x) sub(".*!!", "", x)
-
-# Helper: find a PE (percent estimate) variable by matching its last label segment.
-# exclude_label: drop rows where the full label matches this pattern.
-# include_label: keep only rows where the full label matches this pattern.
-find_pe_var <- function(defs, table_prefix, seg_pattern,
-                        exclude_label = NULL, include_label = NULL) {
-  hits <- defs |>
-    filter(startsWith(name, table_prefix), endsWith(name, "PE")) |>
-    filter(grepl(seg_pattern, last_seg(label), ignore.case = TRUE, perl = TRUE))
-  if (!is.null(exclude_label))
-    hits <- hits |> filter(!grepl(exclude_label, label, ignore.case = TRUE))
-  if (!is.null(include_label))
-    hits <- hits |> filter(grepl(include_label, label, ignore.case = TRUE))
-  if (nrow(hits) == 0) return(NA_character_)
-  tail(hits$name, 1)
-}
-
-# Helper: find a count estimate (E) variable — used when PE is unavailable.
-find_e_var <- function(defs, table_prefix, seg_pattern,
-                       exclude_label = NULL, include_label = NULL) {
-  hits <- defs |>
-    filter(startsWith(name, table_prefix),
-           endsWith(name, "E"), !endsWith(name, "PE"), !endsWith(name, "ME")) |>
-    filter(grepl(seg_pattern, last_seg(label), ignore.case = TRUE, perl = TRUE))
-  if (!is.null(exclude_label))
-    hits <- hits |> filter(!grepl(exclude_label, label, ignore.case = TRUE))
-  if (!is.null(include_label))
-    hits <- hits |> filter(grepl(include_label, label, ignore.case = TRUE))
-  if (nrow(hits) == 0) return(NA_character_)
-  tail(hits$name, 1)
-}
-
-# Hardcoded fallback IDs (validated for 2024 ACS 5-year).
-# DP05 race variable IDs shifted significantly in 2024 due to expanded racial detail categories.
-# DP02 citizenship vars are now count (E) variables in 2024, not PE.
-FALLBACK <- list(
-  race_vars = c(
-    pct_white       = "DP05_0037PE",  # Estimate!!RACE!!...!!One race!!White
-    pct_black       = "DP05_0045PE",  # Estimate!!RACE!!...!!One race!!Black or African American
-    pct_aian        = "DP05_0053PE",  # Estimate!!RACE!!...!!One race!!American Indian and Alaska Native
-    pct_asian       = "DP05_0061PE",  # Estimate!!RACE!!...!!One race!!Asian
-    pct_nhopi       = "DP05_0069PE",  # Estimate!!RACE!!...!!One race!!Native Hawaiian and Other Pacific Islander
-    pct_other       = "DP05_0074PE",  # Estimate!!RACE!!...!!One race!!Some other race
-    pct_two_or_more = "DP05_0075PE",  # Estimate!!RACE!!...!!Two or More Races
-    pct_hispanic    = "DP05_0090PE",  # Estimate!!HISPANIC OR LATINO AND RACE!!...!!Hispanic or Latino (of any race)
-    pct_nh_white    = "DP05_0096PE"   # Estimate!!HISPANIC OR LATINO AND RACE!!...!!Not Hispanic or Latino!!White alone
-  ),
-  count_vars = c(
-    total_pop = "DP05_0033E"          # Estimate!!RACE!!Total population
-  ),
-  citizenship_vars = c(               # DP02 nativity: counts (E) in 2024, not PE
-    pct_foreign_born = "DP02_0094PE",  # Estimate!!PLACE OF BIRTH!!Total population!!Foreign-born
-    pct_naturalized  = "DP02_0096PE",  # Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Naturalized U.S. citizen
-    pct_noncitizen   = "DP02_0097PE"   # Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen
-  ),
-  citizenship_is_count = c(
-    pct_foreign_born = TRUE,
-    pct_naturalized  = TRUE,
-    pct_noncitizen   = TRUE
-  )
-)
-
-cat("Loading ACS variable definitions for", YEAR, SURVEY, "...\n")
-all_defs <- tryCatch(
-  load_variables(YEAR, paste0(SURVEY, "/profile"), cache = TRUE),
-  error = function(e) {
-    warning("load_variables() failed: ", e$message,
-            "\nUsing hardcoded fallback variable IDs (validated for 2024).")
-    NULL
-  }
-)
-
-if (!is.null(all_defs)) {
-  # 2024 labels dropped "alone" and added "One race!!" prefix for individual race categories.
-  # Patterns use optional "( alone)?" so they match both 2023 and 2024 label structures.
-  # pct_white: exclude the "HISPANIC OR LATINO AND RACE" section (has its own White rows).
-  # pct_nh_white: require "Not Hispanic or Latino" in the full label path.
-  race_vars <- c(
-    pct_white       = find_pe_var(all_defs, "DP05", "^White( alone)?$",
-                                  exclude_label = "HISPANIC OR LATINO AND RACE"),
-    pct_black       = find_pe_var(all_defs, "DP05", "^Black or African American( alone)?$"),
-    pct_aian        = find_pe_var(all_defs, "DP05", "^American Indian and Alaska Native( alone)?$"),
-    pct_asian       = find_pe_var(all_defs, "DP05", "^Asian( alone)?$"),
-    pct_nhopi       = find_pe_var(all_defs, "DP05",
-                                  "^Native Hawaiian and Other Pacific Islander( alone)?$"),
-    pct_other       = find_pe_var(all_defs, "DP05", "^Some other race( alone)?$"),
-    pct_two_or_more = find_pe_var(all_defs, "DP05", "^Two or [Mm]ore [Rr]aces$"),
-    pct_hispanic    = find_pe_var(all_defs, "DP05", "Hispanic or Latino \\(of any race\\)"),
-    pct_nh_white    = find_pe_var(all_defs, "DP05", "^White alone$",
-                                  include_label = "Not Hispanic or Latino")
-  )
-
-  # Total population: first E variable in DP05 whose last segment is "Total population"
-  tp_hits <- all_defs |>
-    filter(startsWith(name, "DP05"), endsWith(name, "E"),
-           !endsWith(name, "PE"), !endsWith(name, "ME"),
-           last_seg(label) == "Total population") |>
-    arrange(name)
-  count_vars <- c(total_pop = if (nrow(tp_hits) > 0) tp_hits$name[1] else "DP05_0033E")
-
-  # Replace any NAs in race_vars with hardcoded fallbacks and warn
-  nas <- is.na(race_vars)
-  if (any(nas)) {
-    warning("Could not find ", YEAR, " race IDs for: ",
-            paste(names(race_vars)[nas], collapse = ", "),
-            " — using hardcoded fallbacks.")
-    race_vars[nas] <- FALLBACK$race_vars[names(race_vars)[nas]]
-  }
-
-  # --- DP02 citizenship variables ---
-  # Print all DP02 citizenship-related variables so IDs and types can be verified
-  cat("\n=== DP02 citizenship/nativity variables for", YEAR,
-      "(PE = percent, E = count) ===\n")
-  dp02_cit_defs <- all_defs |>
-    filter(startsWith(name, "DP02")) |>
-    filter(grepl("FOREIGN|BORN|CITIZEN|NATURALI", label, ignore.case = TRUE))
-  print(dp02_cit_defs |> select(name, label), n = 40)
-
-  # Try PE (percent) first; if unavailable fall back to E (count).
-  # Counts will be divided by total_pop in Step 4 to produce percentages.
-  find_cit_var <- function(patterns) {
-    for (pat in patterns) {
-      id <- find_pe_var(all_defs, "DP02", pat)
-      if (!is.na(id)) return(list(id = id, is_count = FALSE))
-    }
-    for (pat in patterns) {
-      id <- find_e_var(all_defs, "DP02", pat)
-      if (!is.na(id)) return(list(id = id, is_count = TRUE))
-    }
-    list(id = NA_character_, is_count = FALSE)
-  }
-
-  fb   <- find_cit_var(c("^Foreign.born$", "foreign.born population",
-                          "foreign born population", "^Foreign born$"))
-  nat  <- find_cit_var(c("Naturalized U\\.S\\. citizen", "Naturalized citizen"))
-  nonc <- find_cit_var(c("^Not a U\\.S\\. citizen$", "Not a citizen"))
-
-  citizenship_vars <- c(
-    pct_foreign_born = if (is.na(fb$id))   unname(FALLBACK$citizenship_vars["pct_foreign_born"]) else fb$id,
-    pct_naturalized  = if (is.na(nat$id))  unname(FALLBACK$citizenship_vars["pct_naturalized"])  else nat$id,
-    pct_noncitizen   = if (is.na(nonc$id)) unname(FALLBACK$citizenship_vars["pct_noncitizen"])   else nonc$id
-  )
-  citizenship_is_count <- c(
-    pct_foreign_born = isTRUE(fb$is_count),
-    pct_naturalized  = isTRUE(nat$is_count),
-    pct_noncitizen   = isTRUE(nonc$is_count)
-  )
-
-  cat("\nResolved variable IDs for", YEAR, ":\n")
-  for (n in names(race_vars))        cat("  ", n, "=", race_vars[n], "\n")
-  for (n in names(citizenship_vars)) cat("  ", n, "=", citizenship_vars[n],
-                                         if (isTRUE(citizenship_is_count[n])) "(COUNT)" else "(PCT)", "\n")
-  cat("  total_pop =", count_vars["total_pop"], "\n")
-
-} else {
-  cat("Using hardcoded fallback variable IDs (validated for 2024).\n")
-  race_vars            <- FALLBACK$race_vars
-  count_vars           <- FALLBACK$count_vars
-  citizenship_vars     <- FALLBACK$citizenship_vars
-  citizenship_is_count <- FALLBACK$citizenship_is_count
+if (!nzchar(Sys.getenv("CENSUS_API_KEY"))) {
+  stop("No Census API key found. Register at https://api.census.gov/data/key_signup.html ",
+       "and run tidycensus::census_api_key('YOUR_KEY', install = TRUE), then restart R.")
 }
 
 # ---------------------------------------------------------------------------
-# Step 3a — Pull DP05 data for all counties (race/ethnicity + total pop)
+# Step 1 — Variable IDs for this release from data/acs_profile_lookup.csv
 # ---------------------------------------------------------------------------
-cat("\nFetching ACS", YEAR, SURVEY, "DP05 variables for all counties...\n")
+# DP05/DP02 variable IDs and label wording change between ACS releases, so IDs
+# come from a per-year lookup built (and checked for exactly one match per
+# variable) by build_lookup.R. Re-run that script to add new releases.
+#   pct_*            percent estimates (PE); race/ethnicity and foreign-born are
+#                    % of total population, naturalized / non-citizen are % of
+#                    the FOREIGN-BORN population
+#   total_pop        DP05 total population (count)
+#   dp02_total_pop,  DP02 counts used to compute non-citizens as % of total
+#   noncitizen_count population; dropped after use
+HELPER_COUNTS <- c("dp02_total_pop", "noncitizen_count")
 
-# Use output = "wide" so tidycensus returns one column per variable directly.
-# Estimate columns are named {friendly_name}E, MOE columns {friendly_name}M.
-all_dp05 <- c(race_vars, count_vars)
-acs_wide_raw <- get_acs(
+lookup_path <- "data/acs_profile_lookup.csv"
+if (!file.exists(lookup_path)) stop(lookup_path, " not found. Run: Rscript build_lookup.R")
+lookup <- read.csv(lookup_path, stringsAsFactors = FALSE) |> filter(year == YEAR)
+if (nrow(lookup) == 0) {
+  stop("No variable lookup for ", YEAR, ". Available years: ",
+       paste(sort(unique(read.csv(lookup_path)$year)), collapse = ", "),
+       ". For a new release, run: Rscript build_lookup.R")
+}
+var_ids <- setNames(lookup$id, lookup$variable)
+
+# Guard against the Census Bureau revising metadata after the lookup was built:
+# each ID must still carry the label recorded in the lookup.
+cat("Checking variable labels for", YEAR, SURVEY, "...
+")
+defs <- load_variables(YEAR, paste0(SURVEY, "/profile")) |>
+  mutate(id = ifelse(grepl("E$", name), name, paste0(name, "E")))   # load_variables drops the E
+current <- defs$label[match(lookup$id, defs$id)]
+changed <- is.na(current) | current != lookup$label
+if (any(changed)) {
+  stop("Variable labels differ from the lookup for ", YEAR, ":
+  ",
+       paste(lookup$variable[changed], lookup$id[changed], sep = " ", collapse = "
+  "),
+       "
+Re-run build_lookup.R and review the result.")
+}
+
+cat("
+Variable IDs for", YEAR, ":
+")
+for (n in names(var_ids)) cat(sprintf("  %-17s %s
+", n, var_ids[n]))
+
+# ---------------------------------------------------------------------------
+# Step 2 — Pull DP05 + DP02 for all counties
+# ---------------------------------------------------------------------------
+# Variables are requested unnamed, so wide-output estimate columns carry the
+# exact API IDs (e.g. DP05_0037PE, DP05_0033E); they are renamed below.
+cat("\nFetching ACS", YEAR, SURVEY, "profile variables for all counties...\n")
+
+acs_raw <- get_acs(
   geography   = "county",
-  variables   = all_dp05,
+  variables   = unname(var_ids),
   year        = YEAR,
   survey      = SURVEY,
   output      = "wide",
   cache_table = TRUE
 )
+cat("Records returned:", nrow(acs_raw), "\n")
 
-cat("DP05 records returned:", nrow(acs_wide_raw), "\n")
-cat("DP05 columns:", paste(names(acs_wide_raw), collapse = ", "), "\n")
-
-# ---------------------------------------------------------------------------
-# Step 3b — Pull DP02 citizenship/nativity data for all counties
-# ---------------------------------------------------------------------------
-cat("\nFetching ACS", YEAR, SURVEY, "DP02 citizenship variables for all counties...\n")
-
-dp02_wide_raw <- get_acs(
-  geography   = "county",
-  variables   = citizenship_vars,
-  year        = YEAR,
-  survey      = SURVEY,
-  output      = "wide",
-  cache_table = TRUE
-)
-
-cat("DP02 records returned:", nrow(dp02_wide_raw), "\n")
-
-# PE vars have no E suffix in wide output; count vars do. Select known columns,
-# then rename {name}E -> {name} where needed.
-dp02_wide <- dp02_wide_raw |>
-  select(GEOID, any_of(names(citizenship_vars)), any_of(paste0(names(citizenship_vars), "E")))
-
-for (vname in names(citizenship_vars)) {
-  col_e <- paste0(vname, "E")
-  if (col_e %in% names(dp02_wide))
-    names(dp02_wide)[names(dp02_wide) == col_e] <- vname
+missing_cols <- setdiff(var_ids, names(acs_raw))
+if (length(missing_cols) > 0) {
+  stop("get_acs() output is missing expected columns: ", paste(missing_cols, collapse = ", "))
 }
 
+acs_wide <- tibble(
+  fips   = acs_raw$GEOID,
+  county = sub(",.*$", "", acs_raw$NAME),
+  state  = trimws(sub("^[^,]+,\\s*", "", acs_raw$NAME))
+)
+for (n in names(var_ids)) acs_wide[[n]] <- acs_raw[[var_ids[[n]]]]
+
+# The 2009 API returns "Do?a Ana County" (non-ASCII character lost upstream)
+acs_wide$county[acs_wide$fips == "35013"] <- "Doña Ana County"
+if (any(grepl("?", acs_wide$county, fixed = TRUE))) {
+  warning("County names with '?' (lost characters): ",
+          paste(acs_wide$county[grepl("?", acs_wide$county, fixed = TRUE)], collapse = ", "))
+}
+
+# Census annotation codes (e.g. -666666666 "cannot be computed") mean no
+# estimate. tidycensus only recodes the negative forms; the 2009 release also
+# uses positive 666666666, so recode both signs.
+annotation_codes <- 111111111 * 1:9
+for (n in names(var_ids)) {
+  acs_wide[[n]][abs(acs_wide[[n]]) %in% annotation_codes] <- NA
+}
+
+# Non-citizens as % of total population (the DP02 PE is % of foreign-born)
+acs_wide <- acs_wide |>
+  mutate(pct_noncitizen_pop = ifelse(dp02_total_pop > 0,
+                                     round(100 * noncitizen_count / dp02_total_pop, 2),
+                                     NA_real_)) |>
+  select(-all_of(HELPER_COUNTS))
+
+# Exclude territories (keep state FIPS 01–56, which includes DC = 11)
+valid_states <- formatC(1:56, width = 2, flag = "0")
+acs_wide <- acs_wide |> filter(substr(fips, 1, 2) %in% valid_states)
+cat("Counties retained (50 states + DC):", nrow(acs_wide), "\n")
+
 # ---------------------------------------------------------------------------
-# Step 3c — Download USDA Rural-Urban Continuum Codes (2023)
+# Step 3 — USDA Rural-Urban Continuum Codes
 # ---------------------------------------------------------------------------
 # Source: https://www.ers.usda.gov/data-products/rural-urban-continuum-codes/
 # Codes 1–3: metro counties; 4–9: nonmetro (increasing rurality).
-# CSV is long-format with columns: FIPS, State, County_Name, Attribute, Value.
+# Vintage matched to the county geography of the release:
+#   2022+      RUCC 2023 (2020 Census; Connecticut planning regions)
+#   2009–2021  RUCC 2013 (2010 Census; legacy Connecticut counties), with
+#              later FIPS changes cross-walked to their predecessor's code
+RUCC_VINTAGE <- if (YEAR >= 2022) 2023L else 2013L
+cat("
+Downloading USDA Rural-Urban Continuum Codes (", RUCC_VINTAGE, ")...
+", sep = "")
 
-cat("\nDownloading USDA Rural-Urban Continuum Codes (2023)...\n")
+load_rucc <- function(vintage) {
+  if (vintage == 2023L) {
+    read_csv("https://www.ers.usda.gov/media/5768/2023-rural-urban-continuum-codes.csv?v=52934",
+             show_col_types = FALSE) |>
+      filter(Attribute == "RUCC_2023") |>
+      transmute(fips = formatC(as.character(FIPS), width = 5, flag = "0"),
+                rucc_code = as.integer(Value))
+  } else {
+    f <- tempfile(fileext = ".xls")
+    download.file("https://www.ers.usda.gov/media/5769/2013-rural-urban-continuum-codes.xls?v=49872",
+                  f, mode = "wb", quiet = TRUE)
+    r13 <- readxl::read_excel(f) |>
+      transmute(fips = formatC(as.character(FIPS), width = 5, flag = "0"),
+                rucc_code = as.integer(RUCC_2013))
+    # Counties created or renamed after 2013 inherit the predecessor's code
+    xwalk <- c("46102" = "46113",   # Oglala Lakota (formerly Shannon), SD, 2015
+               "02158" = "02270",   # Kusilvak (formerly Wade Hampton), AK, 2015
+               "02063" = "02261",   # Chugach (from Valdez-Cordova), AK, 2019
+               "02066" = "02261")   # Copper River (from Valdez-Cordova), AK, 2019
+    bind_rows(r13, tibble(fips = names(xwalk),
+                          rucc_code = r13$rucc_code[match(xwalk, r13$fips)]))
+  }
+}
 
-rucc_url <- "https://www.ers.usda.gov/media/5768/2023-rural-urban-continuum-codes.csv?v=28930"
-
-rucc_codes <- tryCatch({
-  raw <- read_csv(rucc_url, show_col_types = FALSE)
-  raw |>
-    filter(Attribute == "RUCC_2023") |>
-    mutate(
-      fips      = formatC(as.character(FIPS), width = 5, flag = "0"),
-      rucc_code = as.integer(Value)
-    ) |>
-    select(fips, rucc_code)
-}, error = function(e) {
+rucc_codes <- tryCatch(load_rucc(RUCC_VINTAGE), error = function(e) {
   warning("Failed to download RUCC data: ", e$message,
-          "\nrucc_code will be NA for all counties.")
+          "
+rucc_code will be NA for all counties.")
   NULL
 })
 
 if (!is.null(rucc_codes)) {
-  cat("RUCC codes loaded for", nrow(rucc_codes), "counties\n")
-  cat("RUCC distribution:\n")
-  print(table(rucc_codes$rucc_code))
-}
-
-# ---------------------------------------------------------------------------
-# Step 4 — Reshape DP05 to wide and join all datasets
-# ---------------------------------------------------------------------------
-# With output = "wide", tidycensus returns PE variables using the friendly name
-# directly (no E suffix), while count (E) variables get a {name}E column.
-# Use a for-loop to rename {name}E -> {name} where needed, then select.
-acs_wide <- acs_wide_raw |>
-  mutate(
-    fips   = formatC(GEOID, width = 5, flag = "0"),
-    county = sub(",.*$", "", NAME),
-    state  = trimws(sub("^[^,]+,\\s*", "", NAME))
-  )
-
-# Rename count estimate columns {name}E -> {name} (PE vars need no rename)
-for (vname in names(all_dp05)) {
-  col_e <- paste0(vname, "E")
-  if (col_e %in% names(acs_wide))
-    names(acs_wide)[names(acs_wide) == col_e] <- vname
-}
-
-cat("acs_wide columns:", paste(names(acs_wide), collapse = ", "), "\n")
-
-acs_wide <- acs_wide |>
-  select(fips, county, state, all_of(names(race_vars)), all_of(names(count_vars)))
-
-# Exclude territories (FIPS state codes outside 01–56, DC = 11)
-valid_states <- formatC(c(1:56), width = 2, flag = "0")
-acs_wide <- acs_wide |>
-  filter(substr(fips, 1, 2) %in% valid_states)
-
-cat("Counties retained (50 states + DC):", nrow(acs_wide), "\n")
-
-# Join DP02 citizenship variables
-acs_wide <- acs_wide |>
-  left_join(dp02_wide, by = c("fips" = "GEOID"))
-
-# Convert any count-based citizenship variables to percentages using total_pop.
-# This handles years where DP02 provides raw counts instead of PE (percent estimates).
-if (any(citizenship_is_count)) {
-  for (vname in names(citizenship_is_count)[citizenship_is_count]) {
-    if (vname %in% names(acs_wide)) {
-      cat("Converting", vname, "from count to % of total_pop\n")
-      acs_wide[[vname]] <- round((acs_wide[[vname]] / acs_wide$total_pop) * 100, 2)
-    }
-  }
-}
-
-# Join RUCC codes
-if (!is.null(rucc_codes)) {
   acs_wide <- acs_wide |> left_join(rucc_codes, by = "fips")
+  no_rucc <- acs_wide$fips[is.na(acs_wide$rucc_code)]
+  cat("RUCC codes matched:", sum(!is.na(acs_wide$rucc_code)), "of", nrow(acs_wide), "counties
+")
+  if (length(no_rucc) > 0) cat("  No RUCC code:", paste(no_rucc, collapse = ", "), "
+")
 } else {
   acs_wide$rucc_code <- NA_integer_
 }
+acs_wide$rucc_vintage <- RUCC_VINTAGE
 
 # ---------------------------------------------------------------------------
-# Step 4b — Compute Shannon diversity index
+# Step 4 — Shannon diversity index
 # ---------------------------------------------------------------------------
 # Uses the 7 mutually-exhaustive race-alone categories (White, Black, AIAN,
 # Asian, NHOPI, Other, Two+), which sum to ~100% of the population.
 #   H = -sum(p_i * ln(p_i)),  p_i = proportion in group i
 # Range: 0 (perfectly homogeneous) to ln(7) ≈ 1.946 (perfectly uniform).
 # Zero-proportion groups are excluded (0 * ln(0) → 0 by convention).
-
 cat("\nComputing Shannon diversity index from 7 race-alone categories...\n")
 
 race_cols_shannon <- c("pct_white", "pct_black", "pct_aian",
                        "pct_asian", "pct_nhopi", "pct_other", "pct_two_or_more")
 
-acs_wide <- acs_wide |>
-  rowwise() |>
-  mutate(
-    shannon_diversity = {
-      p <- c_across(all_of(race_cols_shannon)) / 100
-      p <- p[!is.na(p) & p > 0]
-      if (length(p) == 0) NA_real_ else -sum(p * log(p))
-    }
-  ) |>
-  ungroup()
+p <- as.matrix(acs_wide[race_cols_shannon]) / 100
+plogp <- ifelse(is.na(p) | p <= 0, 0, p * log(p))
+acs_wide$shannon_diversity <- ifelse(rowSums(!is.na(p)) == 0, NA_real_, -rowSums(plogp))
 
-cat("Shannon diversity summary:\n")
 print(summary(acs_wide$shannon_diversity))
-cat("Columns:\n")
-print(names(acs_wide))
 
 # ---------------------------------------------------------------------------
-# Step 5 — Save
+# Step 5 — Validate
+# ---------------------------------------------------------------------------
+# These checks catch the wrong-variable failures that silently produced
+# implausible files in earlier versions of this script.
+race_sum <- rowSums(acs_wide[race_cols_shannon])
+fb_sum   <- acs_wide$pct_naturalized + acs_wide$pct_noncitizen
+checks <- c(
+  "at least 3,100 counties"                      = nrow(acs_wide) >= 3100,
+  "no duplicate FIPS"                            = !anyDuplicated(acs_wide$fips),
+  "7 race-alone categories sum to 100 (+/- 1.5)" = all(abs(race_sum - 100) <= 1.5, na.rm = TRUE),
+  "percent columns within 0–100"                 = all(unlist(lapply(
+    acs_wide[c(race_cols_shannon, "pct_hispanic", "pct_nh_white", "pct_foreign_born",
+               "pct_naturalized", "pct_noncitizen", "pct_noncitizen_pop")],
+    function(x) all(x >= 0 & x <= 100, na.rm = TRUE)))),
+  "naturalized + non-citizen = 100 (+/- 1)"      = all(abs(fb_sum - 100) <= 1, na.rm = TRUE),
+  "non-citizen % of pop <= foreign-born %"       = all(acs_wide$pct_noncitizen_pop <=
+                                                       acs_wide$pct_foreign_born + 0.5, na.rm = TRUE),
+  "NH White <= White alone + Hispanic"           = all(acs_wide$pct_nh_white <=
+                                                       acs_wide$pct_white + acs_wide$pct_hispanic + 0.5,
+                                                       na.rm = TRUE)
+)
+cat("\nValidation checks:\n")
+for (n in names(checks)) cat(sprintf("  [%s] %s\n", if (checks[[n]]) "ok" else "FAIL", n))
+if (!all(checks)) stop("Validation failed; parquet not written. Check the resolved variable IDs above.")
+
+# ---------------------------------------------------------------------------
+# Step 6 — Save
 # ---------------------------------------------------------------------------
 dir.create("data/processed", showWarnings = FALSE, recursive = TRUE)
 out_path <- sprintf("data/processed/county_race_ethnicity_%d.parquet", YEAR)
 arrow::write_parquet(acs_wide, out_path)
-cat("\nSaved:", out_path, "\n")
-cat("To add another year, change YEAR at the top and re-run this script.\n")
+cat("\nSaved:", out_path, "(", nrow(acs_wide), "rows x", ncol(acs_wide), "cols )\n")

@@ -1,0 +1,241 @@
+"year","variable","id","label","n_matches"
+2009,"total_pop","DP05_0028E","Number!!Estimate!!RACE!!Total population",1
+2009,"pct_white","DP05_0032PE","Percent!!Estimate!!RACE!!One race!!White",1
+2009,"pct_black","DP05_0033PE","Percent!!Estimate!!RACE!!One race!!Black or African American",1
+2009,"pct_aian","DP05_0034PE","Percent!!Estimate!!RACE!!One race!!American Indian and Alaska Native",1
+2009,"pct_asian","DP05_0039PE","Percent!!Estimate!!RACE!!One race!!Asian",1
+2009,"pct_nhopi","DP05_0047PE","Percent!!Estimate!!RACE!!One race!!Native Hawaiian and Other Pacific Islander",1
+2009,"pct_other","DP05_0052PE","Percent!!Estimate!!RACE!!One race!!Some other race",1
+2009,"pct_two_or_more","DP05_0030PE","Percent!!Estimate!!RACE!!Total population!!Two or more races",2
+2009,"pct_hispanic","DP05_0066PE","Percent!!Estimate!!HISPANIC OR LATINO AND RACE!!Total population!!Hispanic or Latino (of any race)",1
+2009,"pct_nh_white","DP05_0072PE","Percent!!Estimate!!HISPANIC OR LATINO AND RACE!!Total population!!Not Hispanic or Latino!!White alone",1
+2009,"dp02_total_pop","DP02_0086E","Number!!Estimate!!PLACE OF BIRTH!!Total population",1
+2009,"pct_foreign_born","DP02_0092PE","Percent!!Estimate!!PLACE OF BIRTH!!Total population!!Foreign born",1
+2009,"pct_naturalized","DP02_0094PE","Percent!!Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Naturalized U.S. citizen",1
+2009,"pct_noncitizen","DP02_0095PE","Percent!!Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2009,"noncitizen_count","DP02_0095E","Number!!Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2010,"total_pop","DP05_0028E","Estimate!!RACE!!Total population",1
+2010,"pct_white","DP05_0032PE","Percent!!RACE!!One race!!White",1
+2010,"pct_black","DP05_0033PE","Percent!!RACE!!One race!!Black or African American",1
+2010,"pct_aian","DP05_0034PE","Percent!!RACE!!One race!!American Indian and Alaska Native",1
+2010,"pct_asian","DP05_0039PE","Percent!!RACE!!One race!!Asian",1
+2010,"pct_nhopi","DP05_0047PE","Percent!!RACE!!One race!!Native Hawaiian and Other Pacific Islander",1
+2010,"pct_other","DP05_0052PE","Percent!!RACE!!One race!!Some other race",1
+2010,"pct_two_or_more","DP05_0030PE","Percent!!RACE!!Two or more races",2
+2010,"pct_hispanic","DP05_0066PE","Percent!!HISPANIC OR LATINO AND RACE!!Hispanic or Latino (of any race)",1
+2010,"pct_nh_white","DP05_0072PE","Percent!!HISPANIC OR LATINO AND RACE!!Not Hispanic or Latino!!White alone",1
+2010,"dp02_total_pop","DP02_0086E","Estimate!!PLACE OF BIRTH!!Total population",1
+2010,"pct_foreign_born","DP02_0092PE","Percent!!PLACE OF BIRTH!!Foreign born",1
+2010,"pct_naturalized","DP02_0094PE","Percent!!U.S. CITIZENSHIP STATUS!!Naturalized U.S. citizen",1
+2010,"pct_noncitizen","DP02_0095PE","Percent!!U.S. CITIZENSHIP STATUS!!Not a U.S. citizen",1
+2010,"noncitizen_count","DP02_0095E","Estimate!!U.S. CITIZENSHIP STATUS!!Not a U.S. citizen",1
+2011,"total_pop","DP05_0028E","Estimate!!RACE!!Total population",1
+2011,"pct_white","DP05_0032PE","Percent!!RACE!!One race!!White",1
+2011,"pct_black","DP05_0033PE","Percent!!RACE!!One race!!Black or African American",1
+2011,"pct_aian","DP05_0034PE","Percent!!RACE!!One race!!American Indian and Alaska Native",1
+2011,"pct_asian","DP05_0039PE","Percent!!RACE!!One race!!Asian",1
+2011,"pct_nhopi","DP05_0047PE","Percent!!RACE!!One race!!Native Hawaiian and Other Pacific Islander",1
+2011,"pct_other","DP05_0052PE","Percent!!RACE!!One race!!Some other race",1
+2011,"pct_two_or_more","DP05_0030PE","Percent!!RACE!!Two or more races",2
+2011,"pct_hispanic","DP05_0066PE","Percent!!HISPANIC OR LATINO AND RACE!!Hispanic or Latino (of any race)",1
+2011,"pct_nh_white","DP05_0072PE","Percent!!HISPANIC OR LATINO AND RACE!!Not Hispanic or Latino!!White alone",1
+2011,"dp02_total_pop","DP02_0086E","Estimate!!PLACE OF BIRTH!!Total population",1
+2011,"pct_foreign_born","DP02_0092PE","Percent!!PLACE OF BIRTH!!Foreign born",1
+2011,"pct_naturalized","DP02_0094PE","Percent!!U.S. CITIZENSHIP STATUS!!Naturalized U.S. citizen",1
+2011,"pct_noncitizen","DP02_0095PE","Percent!!U.S. CITIZENSHIP STATUS!!Not a U.S. citizen",1
+2011,"noncitizen_count","DP02_0095E","Estimate!!U.S. CITIZENSHIP STATUS!!Not a U.S. citizen",1
+2012,"total_pop","DP05_0028E","Estimate!!RACE!!Total population",1
+2012,"pct_white","DP05_0032PE","Percent!!RACE!!One race!!White",1
+2012,"pct_black","DP05_0033PE","Percent!!RACE!!One race!!Black or African American",1
+2012,"pct_aian","DP05_0034PE","Percent!!RACE!!One race!!American Indian and Alaska Native",1
+2012,"pct_asian","DP05_0039PE","Percent!!RACE!!One race!!Asian",1
+2012,"pct_nhopi","DP05_0047PE","Percent!!RACE!!One race!!Native Hawaiian and Other Pacific Islander",1
+2012,"pct_other","DP05_0052PE","Percent!!RACE!!One race!!Some other race",1
+2012,"pct_two_or_more","DP05_0030PE","Percent!!RACE!!Two or more races",2
+2012,"pct_hispanic","DP05_0066PE","Percent!!HISPANIC OR LATINO AND RACE!!Hispanic or Latino (of any race)",1
+2012,"pct_nh_white","DP05_0072PE","Percent!!HISPANIC OR LATINO AND RACE!!Not Hispanic or Latino!!White alone",1
+2012,"dp02_total_pop","DP02_0086E","Estimate!!PLACE OF BIRTH!!Total population",1
+2012,"pct_foreign_born","DP02_0092PE","Percent!!PLACE OF BIRTH!!Foreign born",1
+2012,"pct_naturalized","DP02_0094PE","Percent!!U.S. CITIZENSHIP STATUS!!Naturalized U.S. citizen",1
+2012,"pct_noncitizen","DP02_0095PE","Percent!!U.S. CITIZENSHIP STATUS!!Not a U.S. citizen",1
+2012,"noncitizen_count","DP02_0095E","Estimate!!U.S. CITIZENSHIP STATUS!!Not a U.S. citizen",1
+2013,"total_pop","DP05_0028E","Estimate!!RACE!!Total population",1
+2013,"pct_white","DP05_0032PE","Percent!!RACE!!One race!!White",1
+2013,"pct_black","DP05_0033PE","Percent!!RACE!!One race!!Black or African American",1
+2013,"pct_aian","DP05_0034PE","Percent!!RACE!!One race!!American Indian and Alaska Native",1
+2013,"pct_asian","DP05_0039PE","Percent!!RACE!!One race!!Asian",1
+2013,"pct_nhopi","DP05_0047PE","Percent!!RACE!!One race!!Native Hawaiian and Other Pacific Islander",1
+2013,"pct_other","DP05_0052PE","Percent!!RACE!!One race!!Some other race",1
+2013,"pct_two_or_more","DP05_0030PE","Percent!!RACE!!Total population!!Two or more races",2
+2013,"pct_hispanic","DP05_0066PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Hispanic or Latino (of any race)",1
+2013,"pct_nh_white","DP05_0072PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Not Hispanic or Latino!!White alone",1
+2013,"dp02_total_pop","DP02_0086E","Estimate!!PLACE OF BIRTH!!Total population",1
+2013,"pct_foreign_born","DP02_0092PE","Percent!!PLACE OF BIRTH!!Total population!!Foreign born",1
+2013,"pct_naturalized","DP02_0094PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Naturalized U.S. citizen",1
+2013,"pct_noncitizen","DP02_0095PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2013,"noncitizen_count","DP02_0095E","Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2014,"total_pop","DP05_0028E","Estimate!!RACE!!Total population",1
+2014,"pct_white","DP05_0032PE","Percent!!RACE!!One race!!White",1
+2014,"pct_black","DP05_0033PE","Percent!!RACE!!One race!!Black or African American",1
+2014,"pct_aian","DP05_0034PE","Percent!!RACE!!One race!!American Indian and Alaska Native",1
+2014,"pct_asian","DP05_0039PE","Percent!!RACE!!One race!!Asian",1
+2014,"pct_nhopi","DP05_0047PE","Percent!!RACE!!One race!!Native Hawaiian and Other Pacific Islander",1
+2014,"pct_other","DP05_0052PE","Percent!!RACE!!One race!!Some other race",1
+2014,"pct_two_or_more","DP05_0030PE","Percent!!RACE!!Total population!!Two or more races",2
+2014,"pct_hispanic","DP05_0066PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Hispanic or Latino (of any race)",1
+2014,"pct_nh_white","DP05_0072PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Not Hispanic or Latino!!White alone",1
+2014,"dp02_total_pop","DP02_0086E","Estimate!!PLACE OF BIRTH!!Total population",1
+2014,"pct_foreign_born","DP02_0092PE","Percent!!PLACE OF BIRTH!!Total population!!Foreign born",1
+2014,"pct_naturalized","DP02_0094PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Naturalized U.S. citizen",1
+2014,"pct_noncitizen","DP02_0095PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2014,"noncitizen_count","DP02_0095E","Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2015,"total_pop","DP05_0028E","Estimate!!RACE!!Total population",1
+2015,"pct_white","DP05_0032PE","Percent!!RACE!!One race!!White",1
+2015,"pct_black","DP05_0033PE","Percent!!RACE!!One race!!Black or African American",1
+2015,"pct_aian","DP05_0034PE","Percent!!RACE!!One race!!American Indian and Alaska Native",1
+2015,"pct_asian","DP05_0039PE","Percent!!RACE!!One race!!Asian",1
+2015,"pct_nhopi","DP05_0047PE","Percent!!RACE!!One race!!Native Hawaiian and Other Pacific Islander",1
+2015,"pct_other","DP05_0052PE","Percent!!RACE!!One race!!Some other race",1
+2015,"pct_two_or_more","DP05_0030PE","Percent!!RACE!!Total population!!Two or more races",2
+2015,"pct_hispanic","DP05_0066PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Hispanic or Latino (of any race)",1
+2015,"pct_nh_white","DP05_0072PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Not Hispanic or Latino!!White alone",1
+2015,"dp02_total_pop","DP02_0086E","Estimate!!PLACE OF BIRTH!!Total population",1
+2015,"pct_foreign_born","DP02_0092PE","Percent!!PLACE OF BIRTH!!Total population!!Foreign born",1
+2015,"pct_naturalized","DP02_0094PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Naturalized U.S. citizen",1
+2015,"pct_noncitizen","DP02_0095PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2015,"noncitizen_count","DP02_0095E","Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2016,"total_pop","DP05_0028E","Estimate!!RACE!!Total population",1
+2016,"pct_white","DP05_0032PE","Percent!!RACE!!One race!!White",1
+2016,"pct_black","DP05_0033PE","Percent!!RACE!!One race!!Black or African American",1
+2016,"pct_aian","DP05_0034PE","Percent!!RACE!!One race!!American Indian and Alaska Native",1
+2016,"pct_asian","DP05_0039PE","Percent!!RACE!!One race!!Asian",1
+2016,"pct_nhopi","DP05_0047PE","Percent!!RACE!!One race!!Native Hawaiian and Other Pacific Islander",1
+2016,"pct_other","DP05_0052PE","Percent!!RACE!!One race!!Some other race",1
+2016,"pct_two_or_more","DP05_0030PE","Percent!!RACE!!Total population!!Two or more races",2
+2016,"pct_hispanic","DP05_0066PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Hispanic or Latino (of any race)",1
+2016,"pct_nh_white","DP05_0072PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Not Hispanic or Latino!!White alone",1
+2016,"dp02_total_pop","DP02_0086E","Estimate!!PLACE OF BIRTH!!Total population",1
+2016,"pct_foreign_born","DP02_0092PE","Percent!!PLACE OF BIRTH!!Total population!!Foreign born",1
+2016,"pct_naturalized","DP02_0094PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Naturalized U.S. citizen",1
+2016,"pct_noncitizen","DP02_0095PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2016,"noncitizen_count","DP02_0095E","Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2017,"total_pop","DP05_0033E","Estimate!!RACE!!Total population",1
+2017,"pct_white","DP05_0037PE","Percent Estimate!!RACE!!Total population!!One race!!White",1
+2017,"pct_black","DP05_0038PE","Percent Estimate!!RACE!!Total population!!One race!!Black or African American",1
+2017,"pct_aian","DP05_0039PE","Percent Estimate!!RACE!!Total population!!One race!!American Indian and Alaska Native",1
+2017,"pct_asian","DP05_0044PE","Percent Estimate!!RACE!!Total population!!One race!!Asian",1
+2017,"pct_nhopi","DP05_0052PE","Percent Estimate!!RACE!!Total population!!One race!!Native Hawaiian and Other Pacific Islander",1
+2017,"pct_other","DP05_0057PE","Percent Estimate!!RACE!!Total population!!One race!!Some other race",1
+2017,"pct_two_or_more","DP05_0035PE","Percent Estimate!!RACE!!Total population!!Two or more races",2
+2017,"pct_hispanic","DP05_0071PE","Percent Estimate!!HISPANIC OR LATINO AND RACE!!Total population!!Hispanic or Latino (of any race)",1
+2017,"pct_nh_white","DP05_0077PE","Percent Estimate!!HISPANIC OR LATINO AND RACE!!Total population!!Not Hispanic or Latino!!White alone",1
+2017,"dp02_total_pop","DP02_0086E","Estimate!!PLACE OF BIRTH!!Total population",1
+2017,"pct_foreign_born","DP02_0092PE","Percent Estimate!!PLACE OF BIRTH!!Total population!!Foreign born",1
+2017,"pct_naturalized","DP02_0094PE","Percent Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Naturalized U.S. citizen",1
+2017,"pct_noncitizen","DP02_0095PE","Percent Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2017,"noncitizen_count","DP02_0095E","Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2018,"total_pop","DP05_0033E","Estimate!!RACE!!Total population",1
+2018,"pct_white","DP05_0037PE","Percent Estimate!!RACE!!Total population!!One race!!White",1
+2018,"pct_black","DP05_0038PE","Percent Estimate!!RACE!!Total population!!One race!!Black or African American",1
+2018,"pct_aian","DP05_0039PE","Percent Estimate!!RACE!!Total population!!One race!!American Indian and Alaska Native",1
+2018,"pct_asian","DP05_0044PE","Percent Estimate!!RACE!!Total population!!One race!!Asian",1
+2018,"pct_nhopi","DP05_0052PE","Percent Estimate!!RACE!!Total population!!One race!!Native Hawaiian and Other Pacific Islander",1
+2018,"pct_other","DP05_0057PE","Percent Estimate!!RACE!!Total population!!One race!!Some other race",1
+2018,"pct_two_or_more","DP05_0035PE","Percent Estimate!!RACE!!Total population!!Two or more races",2
+2018,"pct_hispanic","DP05_0071PE","Percent Estimate!!HISPANIC OR LATINO AND RACE!!Total population!!Hispanic or Latino (of any race)",1
+2018,"pct_nh_white","DP05_0077PE","Percent Estimate!!HISPANIC OR LATINO AND RACE!!Total population!!Not Hispanic or Latino!!White alone",1
+2018,"dp02_total_pop","DP02_0086E","Estimate!!PLACE OF BIRTH!!Total population",1
+2018,"pct_foreign_born","DP02_0092PE","Percent Estimate!!PLACE OF BIRTH!!Total population!!Foreign born",1
+2018,"pct_naturalized","DP02_0094PE","Percent Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Naturalized U.S. citizen",1
+2018,"pct_noncitizen","DP02_0095PE","Percent Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2018,"noncitizen_count","DP02_0095E","Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2019,"total_pop","DP05_0033E","Estimate!!RACE!!Total population",1
+2019,"pct_white","DP05_0037PE","Percent!!RACE!!Total population!!One race!!White",1
+2019,"pct_black","DP05_0038PE","Percent!!RACE!!Total population!!One race!!Black or African American",1
+2019,"pct_aian","DP05_0039PE","Percent!!RACE!!Total population!!One race!!American Indian and Alaska Native",1
+2019,"pct_asian","DP05_0044PE","Percent!!RACE!!Total population!!One race!!Asian",1
+2019,"pct_nhopi","DP05_0052PE","Percent!!RACE!!Total population!!One race!!Native Hawaiian and Other Pacific Islander",1
+2019,"pct_other","DP05_0057PE","Percent!!RACE!!Total population!!One race!!Some other race",1
+2019,"pct_two_or_more","DP05_0035PE","Percent!!RACE!!Total population!!Two or more races",2
+2019,"pct_hispanic","DP05_0071PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Hispanic or Latino (of any race)",1
+2019,"pct_nh_white","DP05_0077PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Not Hispanic or Latino!!White alone",1
+2019,"dp02_total_pop","DP02_0087E","Estimate!!PLACE OF BIRTH!!Total population",1
+2019,"pct_foreign_born","DP02_0093PE","Percent!!PLACE OF BIRTH!!Total population!!Foreign born",1
+2019,"pct_naturalized","DP02_0095PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Naturalized U.S. citizen",1
+2019,"pct_noncitizen","DP02_0096PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2019,"noncitizen_count","DP02_0096E","Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2020,"total_pop","DP05_0033E","Estimate!!RACE!!Total population",1
+2020,"pct_white","DP05_0037PE","Percent!!RACE!!Total population!!One race!!White",1
+2020,"pct_black","DP05_0038PE","Percent!!RACE!!Total population!!One race!!Black or African American",1
+2020,"pct_aian","DP05_0039PE","Percent!!RACE!!Total population!!One race!!American Indian and Alaska Native",1
+2020,"pct_asian","DP05_0044PE","Percent!!RACE!!Total population!!One race!!Asian",1
+2020,"pct_nhopi","DP05_0052PE","Percent!!RACE!!Total population!!One race!!Native Hawaiian and Other Pacific Islander",1
+2020,"pct_other","DP05_0057PE","Percent!!RACE!!Total population!!One race!!Some other race",1
+2020,"pct_two_or_more","DP05_0035PE","Percent!!RACE!!Total population!!Two or more races",2
+2020,"pct_hispanic","DP05_0071PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Hispanic or Latino (of any race)",1
+2020,"pct_nh_white","DP05_0077PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Not Hispanic or Latino!!White alone",1
+2020,"dp02_total_pop","DP02_0088E","Estimate!!PLACE OF BIRTH!!Total population",1
+2020,"pct_foreign_born","DP02_0094PE","Percent!!PLACE OF BIRTH!!Total population!!Foreign born",1
+2020,"pct_naturalized","DP02_0096PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Naturalized U.S. citizen",1
+2020,"pct_noncitizen","DP02_0097PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2020,"noncitizen_count","DP02_0097E","Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2021,"total_pop","DP05_0033E","Estimate!!RACE!!Total population",1
+2021,"pct_white","DP05_0037PE","Percent!!RACE!!Total population!!One race!!White",1
+2021,"pct_black","DP05_0038PE","Percent!!RACE!!Total population!!One race!!Black or African American",1
+2021,"pct_aian","DP05_0039PE","Percent!!RACE!!Total population!!One race!!American Indian and Alaska Native",1
+2021,"pct_asian","DP05_0044PE","Percent!!RACE!!Total population!!One race!!Asian",1
+2021,"pct_nhopi","DP05_0052PE","Percent!!RACE!!Total population!!One race!!Native Hawaiian and Other Pacific Islander",1
+2021,"pct_other","DP05_0057PE","Percent!!RACE!!Total population!!One race!!Some other race",1
+2021,"pct_two_or_more","DP05_0035PE","Percent!!RACE!!Total population!!Two or more races",2
+2021,"pct_hispanic","DP05_0071PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Hispanic or Latino (of any race)",1
+2021,"pct_nh_white","DP05_0077PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Not Hispanic or Latino!!White alone",1
+2021,"dp02_total_pop","DP02_0088E","Estimate!!PLACE OF BIRTH!!Total population",1
+2021,"pct_foreign_born","DP02_0094PE","Percent!!PLACE OF BIRTH!!Total population!!Foreign born",1
+2021,"pct_naturalized","DP02_0096PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Naturalized U.S. citizen",1
+2021,"pct_noncitizen","DP02_0097PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2021,"noncitizen_count","DP02_0097E","Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2022,"total_pop","DP05_0033E","Estimate!!RACE!!Total population",1
+2022,"pct_white","DP05_0037PE","Percent!!RACE!!Total population!!One race!!White",1
+2022,"pct_black","DP05_0038PE","Percent!!RACE!!Total population!!One race!!Black or African American",1
+2022,"pct_aian","DP05_0039PE","Percent!!RACE!!Total population!!One race!!American Indian and Alaska Native",1
+2022,"pct_asian","DP05_0044PE","Percent!!RACE!!Total population!!One race!!Asian",1
+2022,"pct_nhopi","DP05_0052PE","Percent!!RACE!!Total population!!One race!!Native Hawaiian and Other Pacific Islander",1
+2022,"pct_other","DP05_0057PE","Percent!!RACE!!Total population!!One race!!Some Other Race",1
+2022,"pct_two_or_more","DP05_0035PE","Percent!!RACE!!Total population!!Two or More Races",2
+2022,"pct_hispanic","DP05_0073PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Hispanic or Latino (of any race)",1
+2022,"pct_nh_white","DP05_0079PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Not Hispanic or Latino!!White alone",1
+2022,"dp02_total_pop","DP02_0088E","Estimate!!PLACE OF BIRTH!!Total population",1
+2022,"pct_foreign_born","DP02_0094PE","Percent!!PLACE OF BIRTH!!Total population!!Foreign born",1
+2022,"pct_naturalized","DP02_0096PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Naturalized U.S. citizen",1
+2022,"pct_noncitizen","DP02_0097PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2022,"noncitizen_count","DP02_0097E","Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2023,"total_pop","DP05_0033E","Estimate!!RACE!!Total population",1
+2023,"pct_white","DP05_0037PE","Percent!!RACE!!Total population!!One race!!White",1
+2023,"pct_black","DP05_0038PE","Percent!!RACE!!Total population!!One race!!Black or African American",1
+2023,"pct_aian","DP05_0039PE","Percent!!RACE!!Total population!!One race!!American Indian and Alaska Native",1
+2023,"pct_asian","DP05_0047PE","Percent!!RACE!!Total population!!One race!!Asian",1
+2023,"pct_nhopi","DP05_0055PE","Percent!!RACE!!Total population!!One race!!Native Hawaiian and Other Pacific Islander",1
+2023,"pct_other","DP05_0060PE","Percent!!RACE!!Total population!!One race!!Some Other Race",1
+2023,"pct_two_or_more","DP05_0035PE","Percent!!RACE!!Total population!!Two or More Races",2
+2023,"pct_hispanic","DP05_0076PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Hispanic or Latino (of any race)",1
+2023,"pct_nh_white","DP05_0082PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Not Hispanic or Latino!!White alone",1
+2023,"dp02_total_pop","DP02_0088E","Estimate!!PLACE OF BIRTH!!Total population",1
+2023,"pct_foreign_born","DP02_0094PE","Percent!!PLACE OF BIRTH!!Total population!!Foreign-born",1
+2023,"pct_naturalized","DP02_0096PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Naturalized U.S. citizen",1
+2023,"pct_noncitizen","DP02_0097PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2023,"noncitizen_count","DP02_0097E","Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2024,"total_pop","DP05_0033E","Estimate!!RACE!!Total population",1
+2024,"pct_white","DP05_0037PE","Percent!!RACE!!Total population!!One race!!White",1
+2024,"pct_black","DP05_0045PE","Percent!!RACE!!Total population!!One race!!Black or African American",1
+2024,"pct_aian","DP05_0053PE","Percent!!RACE!!Total population!!One race!!American Indian and Alaska Native",1
+2024,"pct_asian","DP05_0061PE","Percent!!RACE!!Total population!!One race!!Asian",1
+2024,"pct_nhopi","DP05_0069PE","Percent!!RACE!!Total population!!One race!!Native Hawaiian and Other Pacific Islander",1
+2024,"pct_other","DP05_0074PE","Percent!!RACE!!Total population!!One race!!Some Other Race",1
+2024,"pct_two_or_more","DP05_0035PE","Percent!!RACE!!Total population!!Two or More Races",2
+2024,"pct_hispanic","DP05_0090PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Hispanic or Latino (of any race)",1
+2024,"pct_nh_white","DP05_0096PE","Percent!!HISPANIC OR LATINO AND RACE!!Total population!!Not Hispanic or Latino!!White alone",1
+2024,"dp02_total_pop","DP02_0088E","Estimate!!PLACE OF BIRTH!!Total population",1
+2024,"pct_foreign_born","DP02_0094PE","Percent!!PLACE OF BIRTH!!Total population!!Foreign-born",1
+2024,"pct_naturalized","DP02_0096PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Naturalized U.S. citizen",1
+2024,"pct_noncitizen","DP02_0097PE","Percent!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1
+2024,"noncitizen_count","DP02_0097E","Estimate!!U.S. CITIZENSHIP STATUS!!Foreign-born population!!Not a U.S. citizen",1

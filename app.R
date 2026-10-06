@@ -6,7 +6,6 @@ library(dplyr)
 library(arrow)
 library(tigris)
 library(classInt)
-library(RColorBrewer)
 library(sfdep)
 library(spdep)
 library(DT)
@@ -17,6 +16,24 @@ dataTableOutput <- DT::dataTableOutput
 renderDataTable <- DT::renderDataTable
 
 options(tigris_use_cache = TRUE)
+
+# ---------------------------------------------------------------------------
+# UTSA brand colors
+# ---------------------------------------------------------------------------
+UTSA <- c(
+  midnight = "#032044", orange = "#F15A22", river_mist = "#C8DCFF",
+  talavera_blue = "#265BF7", mission_clay = "#DBB485", brass = "#A06620",
+  limestone = "#F8F4F1", concrete = "#EBE6E2", smoke = "#D5CFC8",
+  white = "#FFFFFF", accessible_orange = "#D3430D"
+)
+UTSA_RAMPS <- list(
+  "UTSA Blues"   = unname(UTSA[c("limestone", "river_mist", "talavera_blue", "midnight")]),
+  "UTSA Oranges" = unname(UTSA[c("limestone", "mission_clay", "orange", "accessible_orange")])
+)
+ramp_colors <- function(name, n, reverse = FALSE) {
+  cols <- grDevices::colorRampPalette(UTSA_RAMPS[[name]])(n)
+  if (reverse) rev(cols) else cols
+}
 
 # ---------------------------------------------------------------------------
 # Variable metadata
@@ -33,11 +50,28 @@ RACE_VARS <- c(
   pct_nh_white    = "Non-Hispanic White Alone"
 )
 
-# Nativity & citizenship percent estimates (from ACS DP02)
+# Nativity & citizenship percent estimates (from ACS DP02). Labels carry their
+# denominator because they differ: naturalized / non-citizen PEs are % of the
+# foreign-born population, not of the total population.
 NATIVITY_VARS <- c(
-  pct_foreign_born = "Foreign-Born Population",
-  pct_naturalized  = "Naturalized U.S. Citizen",
-  pct_noncitizen   = "Not a U.S. Citizen"
+  pct_foreign_born   = "Foreign-Born (% of total pop.)",
+  pct_noncitizen_pop = "Not a U.S. Citizen (% of total pop.)",
+  pct_naturalized    = "Naturalized U.S. Citizen (% of foreign-born)",
+  pct_noncitizen     = "Not a U.S. Citizen (% of foreign-born)"
+)
+NATIVITY_UNITS <- c(
+  pct_foreign_born   = "% of total population",
+  pct_noncitizen_pop = "% of total population",
+  pct_naturalized    = "% of foreign-born",
+  pct_noncitizen     = "% of foreign-born"
+)
+
+RUCC_LABELS <- c(
+  "1" = "1 Metro, 1M+",              "2" = "2 Metro, 250K–1M",
+  "3" = "3 Metro, < 250K",           "4" = "4 Urban 20K+, adjacent",
+  "5" = "5 Urban 20K+, not adj.",    "6" = "6 Urban 5–20K, adjacent",
+  "7" = "7 Urban 5–20K, not adj.",   "8" = "8 Urban < 5K, adjacent",
+  "9" = "9 Urban < 5K, not adj."
 )
 
 # Non-percentage index / count variables
@@ -50,7 +84,7 @@ IDX_VARS <- c(
 # Grouped selectInput choices (creates <optgroup> in HTML)
 var_choices <- list(
   "Race & Ethnicity (%)"       = setNames(names(RACE_VARS),     paste0(RACE_VARS,     " (%)")),
-  "Nativity & Citizenship (%)" = setNames(names(NATIVITY_VARS), paste0(NATIVITY_VARS, " (%)")),
+  "Nativity & Citizenship (%)" = setNames(names(NATIVITY_VARS), NATIVITY_VARS),
   "Diversity & Demographics"   = setNames(names(IDX_VARS),      IDX_VARS)
 )
 
@@ -58,7 +92,7 @@ is_pct_var <- function(col) col %in% c(names(RACE_VARS), names(NATIVITY_VARS))
 
 col_label <- function(col) {
   if (col %in% names(RACE_VARS))     return(paste0(RACE_VARS[col],     " (%)"))
-  if (col %in% names(NATIVITY_VARS)) return(paste0(NATIVITY_VARS[col], " (%)"))
+  if (col %in% names(NATIVITY_VARS)) return(unname(NATIVITY_VARS[col]))
   if (col %in% names(IDX_VARS))      return(unname(IDX_VARS[col]))
   col
 }
@@ -80,44 +114,121 @@ fmt_val <- function(col, values) {
 # Data loaders
 # ---------------------------------------------------------------------------
 
-# Scan data/processed/ for year-stamped parquet files.
-# Falls back to the legacy un-stamped file (labelled as 2023) if present.
-list_available_years <- function() {
+REQUIRED_COLS <- c("fips", "county", "state", names(RACE_VARS),
+                   names(NATIVITY_VARS), names(IDX_VARS))
+
+# Load every year-stamped parquet in data/processed/ (written by prep_data.R).
+# Files from older versions of prep_data.R lack required columns and are
+# skipped with a warning; re-run prep_data.R for that year to rebuild them.
+load_all_years <- function() {
   yr_files <- list.files("data/processed",
-                         pattern = "^county_race_ethnicity_\\d{4}\\.parquet$")
-  if (length(yr_files) > 0) {
-    years <- sub(".*_(\\d{4})\\.parquet$", "\\1", yr_files)
-    return(sort(years, decreasing = TRUE))   # most-recent first
+                         pattern = "^county_race_ethnicity_\\d{4}\\.parquet$",
+                         full.names = TRUE)
+  out <- list()
+  for (f in yr_files) {
+    yr <- sub(".*_(\\d{4})\\.parquet$", "\\1", f)
+    df <- as.data.frame(arrow::read_parquet(f))
+    missing <- setdiff(REQUIRED_COLS, names(df))
+    if (length(missing) > 0) {
+      warning("Skipping ", basename(f), " (missing ", paste(missing, collapse = ", "),
+              "). Re-run: Rscript prep_data.R ", yr)
+      next
+    }
+    df$fips <- formatC(as.character(df$fips), width = 5, flag = "0")
+    out[[yr]] <- df
   }
-  if (file.exists("data/processed/county_race_ethnicity.parquet")) return("2023")
-  character(0)
+  if (length(out) == 0) {
+    stop("No usable data in data/processed/. Run `Rscript prep_data.R <year>` first.")
+  }
+  out[order(names(out), decreasing = TRUE)]   # most-recent first
 }
 
-available_years <- list_available_years()
+TERRITORIES <- c("60", "66", "69", "72", "78")   # AS, GU, MP, PR, VI
 
-load_race <- function(year = NULL) {
-  path <- if (!is.null(year) && nchar(year) == 4) {
-    yr_path <- sprintf("data/processed/county_race_ethnicity_%s.parquet", year)
-    if (file.exists(yr_path)) yr_path
-    else "data/processed/county_race_ethnicity.parquet"   # legacy fallback
+# County boundaries must match each release's county FIPS codes (Connecticut
+# planning regions from 2022, Oglala Lakota / Kusilvak from 2015, Bedford city VA
+# until 2013, Valdez-Cordova AK until 2019). Cartographic boundary files exist
+# for 2010 and 2013+, so 2009–2012 use 2010 (no county changes in that span).
+geo_vintage <- function(year) if (as.integer(year) >= 2013) as.integer(year) else 2010L
+
+GEO_CACHE <- new.env()
+get_counties <- function(year) {
+  key <- as.character(geo_vintage(year))
+  if (is.null(GEO_CACHE[[key]])) {
+    co <- tigris::counties(cb = TRUE, resolution = "20m", year = geo_vintage(year),
+                           progress_bar = FALSE)
+    co <- co[!co$STATEFP %in% TERRITORIES, ]
+    # The 2010 file has STATEFP/COUNTYFP but no GEOID
+    co$GEOID <- paste0(co$STATEFP, co$COUNTYFP)
+    # 2010–2014 files store some names as Latin-1 (e.g. Doña Ana NM). Invalid
+    # UTF-8 sent over the websocket makes the browser drop the session.
+    bad <- !validUTF8(co$NAME)
+    co$NAME[bad] <- iconv(co$NAME[bad], from = "latin1", to = "UTF-8")
+    GEO_CACHE[[key]] <- sf::st_transform(co[, c("GEOID", "NAME", "STATEFP")], 4326)
+  }
+  GEO_CACHE[[key]]
+}
+
+# Loaded once per R process and shared by all sessions
+RACE_DATA       <- load_all_years()
+available_years <- names(RACE_DATA)
+ACS_LOOKUP      <- read.csv("data/acs_profile_lookup.csv", stringsAsFactors = FALSE)
+STATES <- sf::st_transform(
+  subset(tigris::states(cb = TRUE, resolution = "20m", year = 2022, progress_bar = FALSE),
+         !STATEFP %in% TERRITORIES),
+  4326)
+invisible(get_counties(available_years[1]))   # warm the default year
+
+# Tooltip name: the ACS name (clean UTF-8, includes "County"/"Parish"), falling
+# back to the boundary file's name for shapes without data
+county_label <- function(csf) {
+  paste0(ifelse(is.na(csf$county), csf$NAME, csf$county), ", ", csf$state)
+}
+
+# Shared map pieces
+# Basemap: Esri World Light Gray Canvas (no API key; CARTO basemaps now require one)
+base_map <- function() {
+  leaflet(options = leafletOptions(preferCanvas = TRUE)) |>
+    addProviderTiles(providers$Esri.WorldGrayCanvas) |>
+    setView(lng = -96, lat = 38, zoom = 4)
+}
+
+county_border <- function(map, data, fill, labels, layer_id = NULL) {
+  map |>
+    addPolygons(
+      data             = data,
+      fillColor        = fill,
+      fillOpacity      = 0.8,
+      color            = UTSA[["smoke"]],
+      weight           = 0.4,
+      opacity          = 0.8,
+      smoothFactor     = 0.3,
+      label            = labels,
+      layerId          = layer_id,
+      highlightOptions = highlightOptions(
+        weight = 2, color = UTSA[["midnight"]], fillOpacity = 0.95, bringToFront = TRUE
+      )
+    ) |>
+    addPolylines(
+      data         = STATES,
+      color        = UTSA[["midnight"]],
+      weight       = 0.9,
+      opacity      = 0.9,
+      smoothFactor = 0.3
+    )
+}
+
+# LISA classes on the UTSA diverging scheme: high = Orange, low = Midnight,
+# spatial outliers in the lighter tint of their own value's side
+lisa_palette <- function(stat) {
+  if (stat == "moran") {
+    c("HH" = UTSA[["orange"]], "LL" = UTSA[["midnight"]],
+      "HL" = UTSA[["mission_clay"]], "LH" = UTSA[["river_mist"]],
+      "Not significant" = UTSA[["concrete"]])
   } else {
-    "data/processed/county_race_ethnicity.parquet"
+    c("Hot Spot" = UTSA[["orange"]], "Cold Spot" = UTSA[["midnight"]],
+      "Not significant" = UTSA[["concrete"]])
   }
-  df <- arrow::read_parquet(path)
-  df$fips <- formatC(as.character(df$fips), width = 5, flag = "0")
-  df
-}
-
-load_geo <- function() {
-  skip <- c("60", "66", "69", "72", "78")   # territories: AS, GU, MP, PR, VI
-  co <- tigris::counties(cb = TRUE, resolution = "20m", year = 2022, progress_bar = FALSE)
-  st <- tigris::states( cb = TRUE, resolution = "20m", year = 2022, progress_bar = FALSE)
-  co <- co[!co$STATEFP %in% skip, ]
-  st <- st[!st$STATEFP %in% skip, ]
-  list(
-    counties = sf::st_transform(co, 4326),
-    states   = sf::st_transform(st, 4326)
-  )
 }
 
 # ---------------------------------------------------------------------------
@@ -135,7 +246,16 @@ ui <- page_navbar(
                 text-decoration:none;"
     )
   ),
-  theme    = bs_theme(bootswatch = "flatly"),
+  theme    = bs_theme(
+    bootswatch   = "flatly",
+    bg           = UTSA[["white"]],
+    fg           = UTSA[["midnight"]],
+    primary      = UTSA[["midnight"]],
+    secondary    = UTSA[["smoke"]],
+    "link-color" = UTSA[["talavera_blue"]],
+    "navbar-bg"  = UTSA[["midnight"]]
+  ) |>
+    bs_add_rules(sprintf(".navbar { border-bottom: 4px solid %s; }", UTSA[["orange"]])),
   fillable = FALSE,
 
   # ---- PAGE 1: Choropleth map ---------------------------------------------
@@ -144,12 +264,12 @@ ui <- page_navbar(
     layout_sidebar(
       sidebar = sidebar(
         width = 300,
-        selectInput("p1_indicator", "Race / Ethnicity group",
+        selectInput("p1_indicator", "Variable",
           choices  = var_choices,
           selected = "pct_hispanic"),
         selectInput("p1_palette", "Color palette",
-          choices  = c("YlOrRd", "YlGnBu", "RdPu", "BuPu", "Greens", "Blues", "Oranges", "Purples"),
-          selected = "YlOrRd"),
+          choices  = names(UTSA_RAMPS),
+          selected = "UTSA Blues"),
         selectInput("p1_class", "Classification",
           choices  = c("quantile", "jenks", "equal"),
           selected = "quantile"),
@@ -157,7 +277,9 @@ ui <- page_navbar(
         checkboxInput("p1_rev", "Reverse palette",      value = FALSE),
         checkboxInput("p1_na",  "Show missing as grey", value = TRUE),
         hr(),
-        tags$small(tags$b("Click a county to see all its race/ethnicity estimates."))
+        tags$small(tags$b("Click a county to see all its race/ethnicity estimates.")),
+        tags$small(class = "text-muted d-block mt-2",
+          "RUCC is mapped as categories; classification settings do not apply to it.")
       ),
       withSpinner(leafletOutput("choro_map", height = "72vh"), type = 4),
       uiOutput("county_panel")
@@ -170,7 +292,7 @@ ui <- page_navbar(
     layout_sidebar(
       sidebar = sidebar(
         width = 300,
-        selectInput("p2_indicator", "Race / Ethnicity group",
+        selectInput("p2_indicator", "Variable",
           choices  = var_choices,
           selected = "pct_hispanic"),
         selectInput("p2_stat", "Statistic",
@@ -183,6 +305,10 @@ ui <- page_navbar(
         tags$p(tags$b("Spatial weights:"), " K-nearest neighbors (k = 4)",
                class = "mb-1 mt-2", style = "font-size:0.9em"),
         numericInput("p2_alpha", "Significance level", value = 0.05, min = 0.001, max = 0.1, step = 0.005),
+        selectInput("p2_adjust", "Multiple-testing adjustment",
+          choices = c("False discovery rate (Benjamini–Hochberg)" = "BH",
+                      "None"                                     = "none"),
+          selected = "BH"),
         actionButton("p2_run", "Run LISA", class = "btn-primary w-100 mt-2"),
         hr(),
         uiOutput("p2_legend_key")
@@ -199,7 +325,8 @@ ui <- page_navbar(
           withSpinner(DTOutput("lisa_counts"), type = 4),
           hr(),
           tags$small(
-            "Significance based on asymptotic normal approximation (two-sided)."
+            "Significance based on asymptotic normal approximation (two-sided),",
+            "optionally adjusted for ~3,100 simultaneous local tests."
           )
         )
       )
@@ -221,7 +348,7 @@ ui <- page_navbar(
         hr(class = "my-2"),
         sliderInput("w_pop",       "Population size (log₁₀)",
                     min = 0, max = 1, value = 0.25, step = 0.05),
-        sliderInput("w_noncit",    "% Not a U.S. citizen",
+        sliderInput("w_noncit",    "Non-citizens (% of total pop.)",
                     min = 0, max = 1, value = 0.35, step = 0.05),
         sliderInput("w_diversity", "Racial diversity (Shannon H)",
                     min = 0, max = 1, value = 0.20, step = 0.05),
@@ -230,8 +357,8 @@ ui <- page_navbar(
         actionButton("run_risk", "Update Map", class = "btn-primary w-100 mt-2"),
         hr(class = "my-2"),
         selectInput("risk_palette", "Color palette",
-          choices  = c("YlOrRd", "Reds", "OrRd", "RdPu", "YlOrBr"),
-          selected = "YlOrRd"),
+          choices  = names(UTSA_RAMPS),
+          selected = "UTSA Oranges"),
         checkboxInput("risk_rev", "Reverse palette", value = FALSE),
         tags$small(class = "text-muted",
           tags$b("Note:"), " Index values are relative within the displayed dataset.",
@@ -258,7 +385,7 @@ ui <- page_navbar(
       h3("Data Sources & Documentation"),
       p(class = "text-muted",
         "This application maps county-level race and ethnic composition across the United States",
-        "using model-based estimates from the U.S. Census Bureau's American Community Survey.",
+        "using survey-based estimates from the U.S. Census Bureau's American Community Survey.",
         "Data are retrieved directly from the Census Bureau API via the",
         tags$a("tidycensus", href = "https://walker-data.com/tidycensus/", target = "_blank"),
         "R package."),
@@ -270,12 +397,7 @@ ui <- page_navbar(
                 href   = "https://www.census.gov/programs-surveys/acs",
                 target = "_blank")),
       p(tags$b("Publisher:"), " U.S. Census Bureau."),
-      p(tags$b("Release used:"), " 2019–2023 ACS 5-Year Estimates."),
-      p(tags$b("Table:"),
-        tags$a("DP05 — ACS Demographic and Housing Estimates",
-               href   = "https://data.census.gov/table/ACSDP5Y2023.DP05",
-               target = "_blank"),
-        " (Data Profile table)."),
+      uiOutput("release_info"),
       p(tags$b("Geographic unit:"), " U.S. counties; 5-digit FIPS code (3,100+ counties across 50 states + DC)."),
       p(tags$b("Why Data Profile tables?")),
       tags$ul(
@@ -286,33 +408,32 @@ ui <- page_navbar(
         tags$li("Percent estimates in DP05 are computed over the total population",
           " denominator used by the Census Bureau, ensuring internal consistency.")
       ),
-      p(tags$b("Race/Ethnicity measures included:")),
-      tags$ul(
-        tags$li(tags$b("White alone (%) "), "— DP05_0037PE"),
-        tags$li(tags$b("Black or African American alone (%) "), "— DP05_0038PE"),
-        tags$li(tags$b("American Indian & Alaska Native alone (%) "), "— DP05_0039PE"),
-        tags$li(tags$b("Asian alone (%) "), "— DP05_0040PE"),
-        tags$li(tags$b("Native Hawaiian & Other Pacific Islander alone (%) "), "— DP05_0041PE"),
-        tags$li(tags$b("Some other race alone (%) "), "— DP05_0044PE"),
-        tags$li(tags$b("Two or more races (%) "), "— DP05_0045PE"),
-        tags$li(tags$b("Hispanic or Latino, any race (%) "), "— DP05_0071PE"),
-        tags$li(tags$b("Non-Hispanic White alone (%) "), "— DP05_0077PE")
-      ),
+      p(tags$b("Variables for the selected release"),
+        " (race/ethnicity and foreign-born are % of total population):"),
+      uiOutput("var_id_table"),
       p(class = "text-muted", tags$small(
         "Race and Hispanic/Latino origin are collected as two separate questions on the ACS.",
         "Hispanic or Latino is an ethnicity category, not a race category; individuals of",
         "Hispanic or Latino origin may be of any race. The 'White alone' and 'Non-Hispanic",
         "White alone' categories therefore overlap with the 'Hispanic or Latino' category.",
         "Race categories follow the 1997 OMB standards as used by the Census Bureau.",
-        "Variable IDs are specific to the 2023 5-year ACS release; run",
-        tags$code("tidycensus::load_variables(2023, 'acs5/profile')"),
-        "to verify if using a different release year."
+        "Variable IDs and label wording change between releases (IDs were renumbered in",
+        "2017, 2019–2020, 2022, 2023 and 2024). IDs for each release come from",
+        tags$code("data/acs_profile_lookup.csv"), ", built by", tags$code("build_lookup.R"),
+        "from the Census API variable metadata by matching each variable's label path."
+      )),
+      p(class = "text-muted", tags$small(
+        tags$b("Comparing years:"),
+        "race question and coding changes entered the ACS with 2020 data. Releases through",
+        "2015–2019 use the earlier coding; each later release adds another year of new-coding",
+        "responses, and 2020–2024 is the first entirely under it. Nationally, 'Two or more races'",
+        "rises from 3.3% (2015–2019) to 12.6% (2020–2024) and 'White alone' falls from 72.5% to",
+        "61.0%, while Hispanic, non-Hispanic White, and foreign-born shares change smoothly.",
+        "Compare race-alone shares and the Shannon index across the 2019/2020 boundary with caution."
       )),
       tags$ul(
         tags$li(tags$a("ACS methodology",
           href = "https://www.census.gov/programs-surveys/acs/methodology.html", target = "_blank")),
-        tags$li(tags$a("DP05 table on data.census.gov",
-          href = "https://data.census.gov/table/ACSDP5Y2023.DP05", target = "_blank")),
         tags$li(tags$a("Census Bureau race/ethnicity guidance",
           href = "https://www.census.gov/topics/population/race/about.html", target = "_blank"))
       ),
@@ -343,30 +464,38 @@ ui <- page_navbar(
       h4(tags$a("U.S. Census Bureau TIGER/Line Shapefiles",
                 href   = "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html",
                 target = "_blank")),
-      p(tags$b("Vintage:"), " 2022 (1:20,000,000 cartographic boundary files via the",
-        tags$a("tigris", href = "https://github.com/walkerke/tigris", target = "_blank"),
-        "R package)."),
+      uiOutput("geo_info"),
       p(tags$b("Projection:"), " WGS 84 (EPSG:4326) for interactive display."),
       p(class = "text-muted", tags$small(
-        "The 2022 TIGER/Line files use 2020 Census county definitions.",
-        "Connecticut uses 9 planning regions as county equivalents,",
-        "consistent with the 2019–2023 ACS 5-year geography."
+        "County boundaries are matched to each release's county codes. Changes by first",
+        "release affected: Bedford city VA merged into Bedford County (2010–2014);",
+        "Shannon County SD and Wade Hampton Census Area AK renamed Oglala Lakota and",
+        "Kusilvak with new FIPS codes (2011–2015); Valdez-Cordova AK split into Chugach",
+        "and Copper River (2016–2020); Connecticut's 8 counties replaced by 9 planning",
+        "regions (2018–2022)."
       )),
 
       hr(),
 
       # Nativity & citizenship -----------------------------------------------
       h4(tags$a("Nativity & Citizenship Status — ACS DP02",
-                href   = "https://data.census.gov/table/ACSDP5Y2023.DP02",
+                href   = "https://data.census.gov/table/ACSDP5Y2024.DP02",
                 target = "_blank")),
       p(tags$b("Table:"), " DP02 — Selected Social Characteristics in the United States."),
-      p("Three percent-estimate variables from the U.S. Citizenship Status section of DP02",
-        "are included. All percentages are relative to the total civilian non-institutionalized population."),
+      p("Variables from the Place of Birth and U.S. Citizenship Status sections of DP02",
+        "(IDs for the selected release are in the table above). The denominators differ:"),
       tags$ul(
-        tags$li(tags$b("Foreign-Born Population (%) "), "— DP02_0095PE"),
-        tags$li(tags$b("Naturalized U.S. Citizen (%) "), "— DP02_0096PE"),
-        tags$li(tags$b("Not a U.S. Citizen (%) "), "— DP02_0097PE")
+        tags$li(tags$b("Foreign-born (% of total population)")),
+        tags$li(tags$b("Not a U.S. citizen (% of total population)"),
+                " — computed as non-citizen count ÷ place-of-birth total population × 100"),
+        tags$li(tags$b("Naturalized U.S. citizen (% of foreign-born)")),
+        tags$li(tags$b("Not a U.S. citizen (% of foreign-born)"))
       ),
+      p(class = "text-muted", tags$small(
+        "The two '% of foreign-born' measures sum to 100% and can be extreme in counties",
+        "with very few foreign-born residents; use the '% of total population' measures",
+        "to compare how large these groups are across counties."
+      )),
       p(class = "text-muted", tags$small(
         "Foreign-born persons are those born outside the United States who are not U.S. citizens at birth.",
         "A person is a naturalized citizen if they completed the naturalization process.",
@@ -376,7 +505,7 @@ ui <- page_navbar(
       hr(),
 
       # USDA RUCC ------------------------------------------------------------
-      h4(tags$a("USDA Rural-Urban Continuum Codes (2023)",
+      h4(tags$a("USDA Rural-Urban Continuum Codes",
                 href   = "https://www.ers.usda.gov/data-products/rural-urban-continuum-codes/",
                 target = "_blank")),
       p(tags$b("Publisher:"), " U.S. Department of Agriculture, Economic Research Service (USDA ERS)."),
@@ -393,13 +522,7 @@ ui <- page_navbar(
         tags$li(tags$b("8"), " — Nonmetro, urban < 5,000, adjacent"),
         tags$li(tags$b("9"), " — Nonmetro, urban < 5,000, not adjacent")
       ),
-      p(class = "text-muted", tags$small(
-        "The 2023 codes are based on 2020 Census population data and 2023 OMB metro area definitions.",
-        "Downloaded as CSV from ",
-        tags$a("USDA ERS",
-               href = "https://www.ers.usda.gov/data-products/rural-urban-continuum-codes/",
-               target = "_blank"), "."
-      )),
+      uiOutput("rucc_info"),
 
       hr(),
 
@@ -410,11 +533,11 @@ ui <- page_navbar(
         "each min-max normalized to [0, 1] across all counties and then weighted:"),
       tags$ul(
         tags$li(tags$b("Population size (log₁₀):"), " larger counties have more potential targets in absolute terms."),
-        tags$li(tags$b("% Not a U.S. Citizen:"), " directly measures the at-risk population."),
+        tags$li(tags$b("Non-citizens (% of total population):"), " size of the non-citizen population relative to the county."),
         tags$li(tags$b("Racial diversity (Shannon H):"), " correlated with immigrant community presence."),
         tags$li(tags$b("Urbanicity:"), " metro areas have higher enforcement activity; lower RUCC = more urban = higher score.")
       ),
-      p(class = "text-danger", tags$small(tags$b("Important caveat:"),
+      p(style = sprintf("color:%s;", UTSA[["accessible_orange"]]), tags$small(tags$b("Important caveat:"),
         " This index is a hypothetical exploratory tool based on demographic correlates only.",
         " It does not incorporate actual ICE operational data, and should not be used for",
         " prediction, policy, or legal purposes."
@@ -482,12 +605,13 @@ ui <- page_navbar(
   nav_spacer(),
   nav_item(
     div(style = "display:flex; align-items:center; gap:6px; padding:2px 0;",
-      tags$span("ACS Year:",
+      tags$span("ACS 5-year:",
                 style = "color:rgba(255,255,255,0.85); font-size:0.85em; white-space:nowrap;"),
-      div(style = "width:88px;",
+      div(style = "width:120px;",
         selectInput("acs_year", NULL,
-          choices  = if (length(available_years) > 0) available_years else "2023",
-          selected = if (length(available_years) > 0) available_years[1] else "2023",
+          choices  = setNames(available_years,
+                              paste0(as.integer(available_years) - 4, "–", available_years)),
+          selected = available_years[1],
           width    = "100%"
         )
       )
@@ -501,20 +625,91 @@ ui <- page_navbar(
 server <- function(input, output, session) {
 
   # -- Reactive data ---------------------------------------------------------
-  race_data <- reactive({ load_race(input$acs_year) })
-  geo       <- reactive({ load_geo()  })
-  county_sf <- reactive({
-    left_join(geo()$counties, race_data(), by = c("GEOID" = "fips"))
+  race_data <- reactive({
+    req(input$acs_year %in% available_years)
+    RACE_DATA[[input$acs_year]]
   })
-  selected_county_row <- reactiveVal(NULL)
+  county_sf <- reactive({
+    left_join(get_counties(input$acs_year), race_data(), by = c("GEOID" = "fips"))
+  })
+  selected_fips <- reactiveVal(NULL)
+  # The clicked county's row in the *current* year, so the detail panel and
+  # CSV follow the year selector instead of keeping stale values.
+  selected_county_row <- reactive({
+    req(selected_fips())
+    rd  <- race_data()
+    row <- rd[rd$fips == selected_fips(), ]
+    if (nrow(row) == 0) NULL else row
+  })
+
+  output$var_id_table <- renderUI({
+    lk <- ACS_LOOKUP[ACS_LOOKUP$year == as.integer(input$acs_year), ]
+    labels <- c(
+      total_pop = "Total population (count)", pct_white = "White alone",
+      pct_black = "Black or African American alone",
+      pct_aian = "American Indian & Alaska Native alone", pct_asian = "Asian alone",
+      pct_nhopi = "Native Hawaiian & Other Pacific Islander alone",
+      pct_other = "Some other race alone", pct_two_or_more = "Two or more races",
+      pct_hispanic = "Hispanic or Latino, any race", pct_nh_white = "Non-Hispanic White alone",
+      pct_foreign_born = "Foreign-born (% of total pop.)",
+      pct_naturalized = "Naturalized U.S. citizen (% of foreign-born)",
+      pct_noncitizen = "Not a U.S. citizen (% of foreign-born)",
+      noncitizen_count = "Not a U.S. citizen (count)",
+      dp02_total_pop = "Place-of-birth total population (count)"
+    )
+    lk <- lk[match(names(labels), lk$variable), ]
+    tags$table(class = "table table-sm", style = "max-width:640px;",
+      tags$thead(tags$tr(tags$th("Measure"), tags$th("Column"), tags$th("ACS variable"))),
+      tags$tbody(lapply(seq_len(nrow(lk)), function(i)
+        tags$tr(tags$td(labels[[lk$variable[i]]]), tags$td(tags$code(lk$variable[i])),
+                tags$td(lk$id[i], title = lk$label[i]))))
+    )
+  })
+
+  output$geo_info <- renderUI({
+    gv <- geo_vintage(input$acs_year)
+    p(tags$b("Vintage:"), sprintf(" %d", gv),
+      " cartographic boundary files (1:20,000,000) via the",
+      tags$a("tigris", href = "https://github.com/walkerke/tigris", target = "_blank"),
+      if (gv == 2010) "R package; releases ending 2009–2012 use the 2010 files."
+      else "R package, matching the release's end year.")
+  })
+
+  output$rucc_info <- renderUI({
+    v <- unique(race_data()$rucc_vintage)
+    p(class = "text-muted", tags$small(
+      if (identical(v, 2023L))
+        "This release uses the 2023 codes (2020 Census population, 2023 OMB metro definitions)."
+      else paste("This release uses the 2013 codes (2010 Census population, 2013 OMB metro",
+                 "definitions), matching its pre-2022 county geography. Counties created or",
+                 "renamed after 2013 (Oglala Lakota SD, Kusilvak AK, Chugach and Copper River AK)",
+                 "take their predecessor county's code."),
+      " Codes are fixed per vintage, so they do not track urbanization between vintages.",
+      " Downloaded from ",
+      tags$a("USDA ERS", href = "https://www.ers.usda.gov/data-products/rural-urban-continuum-codes/",
+             target = "_blank"), "."
+    ))
+  })
+
+  output$release_info <- renderUI({
+    yr <- as.integer(input$acs_year)
+    tagList(
+      p(tags$b("Release shown:"), sprintf(" %d–%d ACS 5-Year Estimates", yr - 4, yr),
+        " (change with the ACS Year selector; available: ",
+        paste(available_years, collapse = ", "), ")."),
+      p(tags$b("Table:"),
+        tags$a("DP05 — ACS Demographic and Housing Estimates",
+               href   = sprintf("https://data.census.gov/table/ACSDP5Y%d.DP05", yr),
+               target = "_blank"),
+        " (Data Profile table).")
+    )
+  })
 
   # =========================================================================
   # PAGE 1 — Choropleth map
   # =========================================================================
   output$choro_map <- renderLeaflet({
-    leaflet(options = leafletOptions(preferCanvas = TRUE)) |>
-      addProviderTiles("CartoDB.Positron") |>
-      setView(lng = -96, lat = 38, zoom = 4)
+    base_map()
   })
 
   observeEvent(
@@ -530,46 +725,45 @@ server <- function(input, output, session) {
     valid_vals <- values[!is.na(values) & is.finite(values)]
     if (length(unique(valid_vals)) < 2) return()
 
-    pal_name <- if (input$p1_rev) paste0("-", input$p1_palette) else input$p1_palette
+    na_col <- if (input$p1_na) UTSA[["concrete"]] else "#00000000"
+
+    labels <- sprintf(
+      "<b>%s</b><br/>%s: %s",
+      county_label(csf),
+      col_label(col),
+      fmt_val(col, values)
+    ) |> lapply(htmltools::HTML)
+
+    map <- leafletProxy("choro_map") |> clearShapes() |> clearControls()
+
+    if (col == "rucc_code") {
+      # Categorical: one color per code, metro (1) darkest unless reversed
+      codes  <- as.character(1:9)
+      cols   <- ramp_colors(input$p1_palette, 9, reverse = !input$p1_rev)
+      fills  <- ifelse(is.na(values), na_col, cols[match(as.character(values), codes)])
+      map |>
+        county_border(csf, fills, labels, layer_id = csf$GEOID) |>
+        addLegend(
+          position = "bottomright",
+          colors   = c(cols, if (input$p1_na) na_col),
+          labels   = c(unname(RUCC_LABELS), if (input$p1_na) "No data"),
+          title    = col_label(col),
+          opacity  = 0.9
+        )
+      return()
+    }
+
     brks <- tryCatch(
       classIntervals(valid_vals, n = input$p1_n, style = input$p1_class)$brks,
       error = function(e) quantile(valid_vals, probs = seq(0, 1, length.out = input$p1_n + 1),
                                     na.rm = TRUE)
     )
     brks   <- unique(brks)
-    na_col <- if (input$p1_na) "#AAAAAA88" else "#00000000"
-    pal_fn <- colorBin(pal_name, domain = values, bins = brks, na.color = na_col)
+    pal_fn <- colorBin(ramp_colors(input$p1_palette, length(brks) - 1, input$p1_rev),
+                       domain = values, bins = brks, na.color = na_col)
 
-    labels <- sprintf(
-      "<b>%s</b><br/>%s: %s",
-      paste0(csf$NAME, ", ", csf$state),
-      col_label(col),
-      fmt_val(col, values)
-    ) |> lapply(htmltools::HTML)
-
-    leafletProxy("choro_map") |>
-      clearShapes() |> clearControls() |>
-      addPolygons(
-        data             = csf,
-        fillColor        = ~pal_fn(get(col)),
-        fillOpacity      = 0.75,
-        color            = "#BBBBBB",
-        weight           = 0.4,
-        opacity          = 0.7,
-        smoothFactor     = 0.3,
-        label            = labels,
-        layerId          = ~GEOID,
-        highlightOptions = highlightOptions(
-          weight = 1.8, color = "#444", fillOpacity = 0.9, bringToFront = TRUE
-        )
-      ) |>
-      addPolylines(
-        data         = geo()$states,
-        color        = "#111111",
-        weight       = 0.9,
-        opacity      = 0.9,
-        smoothFactor = 0.3
-      ) |>
+    map |>
+      county_border(csf, pal_fn(values), labels, layer_id = csf$GEOID) |>
       addLegend(
         position  = "bottomright",
         pal       = pal_fn,
@@ -585,12 +779,13 @@ server <- function(input, output, session) {
 
   # County detail on click
   observeEvent(input$choro_map_shape_click, {
-    click <- input$choro_map_shape_click
-    req(click$id)
-    rd  <- race_data()
-    row <- rd[rd$fips == click$id, ]
-    if (nrow(row) == 0) return()
-    selected_county_row(row)
+    req(input$choro_map_shape_click$id)
+    selected_fips(input$choro_map_shape_click$id)
+  })
+
+  output$county_panel <- renderUI({
+    row <- selected_county_row()
+    req(row)
 
     make_row <- function(label, val, fmt = "pct") {
       v <- if (fmt == "pct")   { if (is.null(val) || is.na(val)) "—" else paste0(round(val, 1), "%") }
@@ -605,7 +800,7 @@ server <- function(input, output, session) {
       lapply(names(RACE_VARS), function(m) make_row(paste0(RACE_VARS[m], " (%)"), row[[m]], "pct")),
       # Nativity & citizenship
       list(make_row("—— Nativity & Citizenship ——", NA, "raw")),
-      lapply(names(NATIVITY_VARS), function(m) make_row(paste0(NATIVITY_VARS[m], " (%)"), row[[m]], "pct")),
+      lapply(names(NATIVITY_VARS), function(m) make_row(unname(NATIVITY_VARS[m]), row[[m]], "pct")),
       # Demographics & indices
       list(make_row("—— Demographics & Indices ——", NA, "raw")),
       list(make_row("Total Population",              row[["total_pop"]],         "int")),
@@ -613,21 +808,19 @@ server <- function(input, output, session) {
       list(make_row("USDA Rural-Urban Continuum Code", row[["rucc_code"]],       "raw"))
     ))
 
-    output$county_panel <- renderUI({
-      div(class = "mt-3",
-        wellPanel(
-          h5(paste0(row$county[1], ", ", row$state[1],
-                    " (FIPS: ", click$id, ")"), style = "margin-top:0"),
-          DT::datatable(df, rownames = FALSE,
-                        options = list(pageLength = 10, dom = "t", scrollY = "300px"),
-                        class = "compact stripe"),
-          div(class = "mt-2",
-            downloadButton("download_county", "Download CSV",
-                           class = "btn-sm btn-outline-secondary")
-          )
+    div(class = "mt-3",
+      wellPanel(
+        h5(paste0(row$county[1], ", ", row$state[1],
+                  " (FIPS: ", row$fips[1], ") — ACS ", input$acs_year), style = "margin-top:0"),
+        DT::datatable(df, rownames = FALSE,
+                      options = list(pageLength = 20, dom = "t", scrollY = "300px"),
+                      class = "compact stripe"),
+        div(class = "mt-2",
+          downloadButton("download_county", "Download CSV",
+                         class = "btn-sm btn-outline-primary")
         )
       )
-    })
+    )
   })
 
   output$download_county <- downloadHandler(
@@ -636,15 +829,15 @@ server <- function(input, output, session) {
       if (is.null(r)) return("county_data.csv")
       paste0(gsub("[^A-Za-z0-9]", "_", r$county[1]), "_",
              gsub("[^A-Za-z0-9]", "_", r$state[1]), "_",
-             r$fips[1], ".csv")
+             r$fips[1], "_acs", input$acs_year, ".csv")
     },
     content = function(file) {
       r <- selected_county_row()
       req(!is.null(r))
       get_val <- function(col) { v <- r[[col]]; if (is.null(v) || length(v) == 0 || is.na(v)) NA_real_ else as.numeric(v) }
       all_vars <- c(
-        setNames(rep("%",          length(RACE_VARS)),     names(RACE_VARS)),
-        setNames(rep("%",          length(NATIVITY_VARS)), names(NATIVITY_VARS)),
+        setNames(rep("% of total population", length(RACE_VARS)), names(RACE_VARS)),
+        NATIVITY_UNITS[names(NATIVITY_VARS)],
         c(total_pop = "count", shannon_diversity = "index (0–ln7)",
           rucc_code = "code (1–9)")
       )
@@ -652,6 +845,7 @@ server <- function(input, output, session) {
                       "Total Population", "Shannon Diversity Index (H)",
                       "USDA Rural-Urban Continuum Code")
       pct_rows <- data.frame(
+        acs_year = input$acs_year,
         fips     = r$fips[1],
         county   = r$county[1],
         state    = r$state[1],
@@ -671,9 +865,7 @@ server <- function(input, output, session) {
   lisa_rv <- reactiveVal(NULL)
 
   output$lisa_map <- renderLeaflet({
-    leaflet(options = leafletOptions(preferCanvas = TRUE)) |>
-      addProviderTiles("CartoDB.Positron") |>
-      setView(lng = -96, lat = 38, zoom = 4)
+    base_map()
   })
 
   observeEvent(input$p2_run, {
@@ -695,7 +887,9 @@ server <- function(input, output, session) {
 
       setProgress(0.2, detail = "Building k=4 nearest-neighbor weights")
       nb <- tryCatch(
-        st_knn(st_geometry(csf_v), k = 4L),
+        # Neighbors from interior points in an equal-area projection (Albers),
+        # not from lon/lat polygons
+        st_knn(st_point_on_surface(st_geometry(st_transform(csf_v, 5070))), k = 4L),
         error = function(e) {
           showNotification(paste("Neighbor error:", e$message), type = "error")
           NULL
@@ -725,7 +919,7 @@ server <- function(input, output, session) {
 
         z_std <- scale(vals_v)[, 1]
         lag_z <- spdep::lag.listw(listw, z_std, zero.policy = TRUE)
-        p_val <- lm[, "Pr(z != E(Ii))"]
+        p_val <- p.adjust(lm[, "Pr(z != E(Ii))"], method = input$p2_adjust)
         sig   <- !is.na(p_val) & p_val <= input$p2_alpha
 
         cluster <- rep("Not significant", length(vals_v))
@@ -736,31 +930,34 @@ server <- function(input, output, session) {
 
         stat_vals <- lm[, "Ii"]
         stat_z    <- lm[, "Z.Ii"]
-        p_sim     <- p_val
 
       } else {
-        lg <- tryCatch(
-          if (stat == "g") local_g(vals_v, nb, wts)
-          else             local_gstar(vals_v, nb, wts),
+        # spdep::localG() returns the Getis-Ord statistic as a z-score. For G*
+        # the focal county is added to its own neighbor set before weighting.
+        g_listw <- if (stat == "gstar") {
+          nb_self <- spdep::include.self(nb)
+          sfdep::recreate_listw(nb_self, st_weights(nb_self))
+        } else listw
+        gz <- tryCatch(
+          as.numeric(spdep::localG(vals_v, g_listw, zero.policy = TRUE)),
           error = function(e) {
             showNotification(paste("LISA error:", e$message), type = "error")
             NULL
           }
         )
-        req(!is.null(lg))
+        req(!is.null(gz))
 
-        p_val <- lg$p_value
+        p_val <- p.adjust(2 * pnorm(-abs(gz)), method = input$p2_adjust)
         sig   <- !is.na(p_val) & p_val <= input$p2_alpha
 
         cluster <- rep("Not significant", length(vals_v))
-        cluster[sig & lg$cluster == "High"] <- "Hot Spot"
-        cluster[sig & lg$cluster == "Low"]  <- "Cold Spot"
+        cluster[sig & gz > 0] <- "Hot Spot"
+        cluster[sig & gz < 0] <- "Cold Spot"
 
-        stat_col  <- if (stat == "g") "gi" else "gi_star"
-        stat_vals <- lg[[stat_col]]
-        stat_z    <- lg$std_dev
-        p_sim     <- p_val
+        stat_vals <- gz
+        stat_z    <- gz
       }
+      p_sim <- p_val
 
       setProgress(0.9, detail = "Merging results")
 
@@ -778,6 +975,8 @@ server <- function(input, output, session) {
       lisa_rv(list(
         sf             = csf,
         stat           = stat,
+        col            = col,
+        adjust         = input$p2_adjust,
         gmt            = gmt,
         cluster_counts = table(cluster)
       ))
@@ -791,76 +990,66 @@ server <- function(input, output, session) {
     csf  <- res$sf
     stat <- res$stat
 
-    cluster_pal <- if (stat == "moran") {
-      c("HH" = "#d7191c", "LL" = "#2c7bb6", "HL" = "#fdae61",
-        "LH" = "#4dac26", "Not significant" = "#e8e8e8")
-    } else {
-      c("Hot Spot" = "#d7191c", "Cold Spot" = "#2c7bb6", "Not significant" = "#e8e8e8")
-    }
+    cluster_pal <- lisa_palette(stat)
 
-    quad <- ifelse(is.na(csf$lisa_cluster), "Not significant", csf$lisa_cluster)
-    csf$fill_color <- unname(cluster_pal[quad])
+    quad  <- ifelse(is.na(csf$lisa_cluster), "Not significant", csf$lisa_cluster)
+    fills <- unname(cluster_pal[quad])
 
-    stat_label <- switch(stat, moran = "Local I", g = "Gi", gstar = "Gi*")
-    p2_col <- isolate(input$p2_indicator)
+    stat_label <- switch(stat, moran = "Local I", g = "Gi (z)", gstar = "Gi* (z)")
+    p_label    <- if (res$adjust == "BH") "p (asymp, FDR-adj.)" else "p (asymp)"
     labels <- sprintf(
-      "<b>%s</b><br/>%s<br/>Cluster: %s<br/>%s: %s<br/>z: %s<br/>p (asymp): %s",
-      paste0(csf$NAME, ", ", csf$state),
-      col_label(p2_col),
+      "<b>%s</b><br/>%s<br/>Cluster: %s<br/>%s: %s<br/>z: %s<br/>%s: %s",
+      county_label(csf),
+      col_label(res$col),
       ifelse(is.na(csf$lisa_cluster), "No data", csf$lisa_cluster),
       stat_label,
       ifelse(is.na(csf$lisa_stat),  "—", round(csf$lisa_stat,  4)),
       ifelse(is.na(csf$lisa_z),     "—", round(csf$lisa_z,     4)),
+      p_label,
       ifelse(is.na(csf$lisa_p_sim), "—", round(csf$lisa_p_sim, 4))
     ) |> lapply(htmltools::HTML)
 
     leafletProxy("lisa_map") |>
       clearShapes() |> clearControls() |>
-      addPolygons(
-        data             = csf,
-        fillColor        = ~fill_color,
-        fillOpacity      = 0.75,
-        color            = "#BBBBBB",
-        weight           = 0.4,
-        opacity          = 0.7,
-        smoothFactor     = 0.3,
-        label            = labels,
-        highlightOptions = highlightOptions(
-          weight = 1.8, color = "#444", fillOpacity = 0.9, bringToFront = TRUE
-        )
-      ) |>
-      addPolylines(
-        data         = geo()$states,
-        color        = "#111111",
-        weight       = 0.9,
-        opacity      = 0.9,
-        smoothFactor = 0.3
-      ) |>
+      county_border(csf, fills, labels) |>
       addLegend(
         position = "bottomright",
         colors   = unname(cluster_pal),
         labels   = names(cluster_pal),
         title    = paste0(switch(stat, moran = "Moran's I", g = "Local G", gstar = "Local G*"),
-                          " — ", col_label(input$p2_indicator)),
+                          " — ", col_label(res$col)),
         opacity  = 0.9
       )
   })
 
-  # Sidebar legend key
+  # Changing the ACS year invalidates LISA results (user re-runs for the new year)
+  observeEvent(input$acs_year, ignoreInit = TRUE, {
+    lisa_rv(NULL)
+    leafletProxy("lisa_map") |> clearShapes() |> clearControls()
+  })
+
+  # Sidebar legend key (color swatches; text stays Midnight for contrast)
   output$p2_legend_key <- renderUI({
     stat <- input$p2_stat
+    pal  <- lisa_palette(stat)
+    swatch <- function(key, text) tagList(
+      tags$span(style = sprintf(
+        "display:inline-block; width:12px; height:12px; margin-right:6px; vertical-align:middle;
+         background:%s; border:1px solid %s;", pal[[key]], UTSA[["midnight"]])),
+      tags$b(key), " ", text, tags$br()
+    )
     tags$small(
       if (stat == "moran") tagList(
         tags$b("Local Moran's I"), " (Anselin 1995)", tags$br(), tags$br(),
-        tags$span(style = "color:#d7191c", tags$b("HH")), " High-High cluster", tags$br(),
-        tags$span(style = "color:#2c7bb6", tags$b("LL")), " Low-Low cluster",   tags$br(),
-        tags$span(style = "color:#fdae61", tags$b("HL")), " High outlier, low neighbors", tags$br(),
-        tags$span(style = "color:#4dac26", tags$b("LH")), " Low outlier, high neighbors"
+        swatch("HH", "High-High cluster"),
+        swatch("LL", "Low-Low cluster"),
+        swatch("HL", "High outlier, low neighbors"),
+        swatch("LH", "Low outlier, high neighbors")
       ) else tagList(
         if (stat == "g") tags$b("Local G (Getis-Ord)") else tags$b("Local G* (Getis-Ord)"),
         tags$br(), tags$br(),
-        tags$span(style = "color:#d7191c", tags$b("Hot Spot")), " Significant high cluster", tags$br(),
-        tags$span(style = "color:#2c7bb6", tags$b("Cold Spot")), " Significant low cluster"
+        swatch("Hot Spot",  "Significant high cluster"),
+        swatch("Cold Spot", "Significant low cluster")
       )
     )
   })
@@ -914,7 +1103,7 @@ server <- function(input, output, session) {
 
       csf$risk_index <- (
         input$w_pop       * norm01(log10(pmax(csf$total_pop, 1, na.rm = FALSE))) +
-        input$w_noncit    * norm01(csf$pct_noncitizen) +
+        input$w_noncit    * norm01(csf$pct_noncitizen_pop) +
         input$w_diversity * norm01(csf$shannon_diversity) +
         input$w_urban     * norm01(10L - csf$rucc_code)
       ) / w_total
@@ -926,54 +1115,33 @@ server <- function(input, output, session) {
   )
 
   output$risk_map <- renderLeaflet({
-    leaflet(options = leafletOptions(preferCanvas = TRUE)) |>
-      addProviderTiles("CartoDB.Positron") |>
-      setView(lng = -96, lat = 38, zoom = 4)
+    base_map()
   })
 
   observeEvent(risk_data(), {
     req(risk_data())
     csf      <- risk_data()
-    pal_name <- if (isolate(input$risk_rev)) paste0("-", input$risk_palette)
-                else input$risk_palette
     values   <- csf$risk_index
     valid    <- values[!is.na(values) & is.finite(values)]
 
     brks   <- unique(quantile(valid, probs = seq(0, 1, length.out = 6), na.rm = TRUE))
-    pal_fn <- colorBin(pal_name, domain = values, bins = brks, na.color = "#AAAAAA88")
+    pal_fn <- colorBin(ramp_colors(isolate(input$risk_palette), length(brks) - 1,
+                                   isolate(input$risk_rev)),
+                       domain = values, bins = brks, na.color = UTSA[["concrete"]])
 
     labels <- sprintf(
-      "<b>%s</b><br/>Risk Index: %s<br/>Pop: %s<br/>Non-citizen: %s<br/>Shannon H: %s<br/>RUCC: %s",
-      paste0(csf$NAME, ", ", csf$state),
+      "<b>%s</b><br/>Risk Index: %s<br/>Pop: %s<br/>Non-citizens (%% of pop.): %s<br/>Shannon H: %s<br/>RUCC: %s",
+      county_label(csf),
       ifelse(is.na(values), "No data", round(values, 3)),
       ifelse(is.na(csf$total_pop),   "—", formatC(as.integer(csf$total_pop), format = "d", big.mark = ",")),
-      ifelse(is.na(csf$pct_noncitizen), "—", paste0(round(csf$pct_noncitizen, 1), "%")),
+      ifelse(is.na(csf$pct_noncitizen_pop), "—", paste0(round(csf$pct_noncitizen_pop, 1), "%")),
       ifelse(is.na(csf$shannon_diversity), "—", round(csf$shannon_diversity, 3)),
       ifelse(is.na(csf$rucc_code), "—", as.integer(csf$rucc_code))
     ) |> lapply(htmltools::HTML)
 
     leafletProxy("risk_map") |>
       clearShapes() |> clearControls() |>
-      addPolygons(
-        data             = csf,
-        fillColor        = ~pal_fn(risk_index),
-        fillOpacity      = 0.75,
-        color            = "#BBBBBB",
-        weight           = 0.4,
-        opacity          = 0.7,
-        smoothFactor     = 0.3,
-        label            = labels,
-        highlightOptions = highlightOptions(
-          weight = 1.8, color = "#444", fillOpacity = 0.9, bringToFront = TRUE
-        )
-      ) |>
-      addPolylines(
-        data         = geo()$states,
-        color        = "#111111",
-        weight       = 0.9,
-        opacity      = 0.9,
-        smoothFactor = 0.3
-      ) |>
+      county_border(csf, pal_fn(values), labels) |>
       addLegend(
         position  = "bottomright",
         pal       = pal_fn,
@@ -993,10 +1161,10 @@ server <- function(input, output, session) {
       arrange(desc(risk_index)) |>
       slice_head(n = 30) |>
       transmute(
-        County       = paste0(NAME, ", ", state),
+        County       = paste0(ifelse(is.na(county), NAME, county), ", ", state),
         `Risk Index` = round(risk_index, 3),
         `Pop.`       = formatC(as.integer(total_pop), format = "d", big.mark = ","),
-        `Non-cit. %` = ifelse(is.na(pct_noncitizen), "—", paste0(round(pct_noncitizen, 1), "%")),
+        `Non-cit. % pop.` = ifelse(is.na(pct_noncitizen_pop), "—", paste0(round(pct_noncitizen_pop, 1), "%")),
         `Shannon H`  = round(shannon_diversity, 3),
         `RUCC`       = rucc_code
       )

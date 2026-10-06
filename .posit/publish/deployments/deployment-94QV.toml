@@ -10,12 +10,29 @@ id = "01a112a7-a4d2-7ca1-eb18-af7a3d4c5f27"
 dashboard_url = "https://connect.posit.cloud/coreysparks/content/01a112a7-a4d2-7ca1-eb18-af7a3d4c5f27"
 direct_url = "https://01a112a7-a4d2-7ca1-eb18-af7a3d4c5f27.share.connect.posit.cloud"
 logs_url = "https://connect.posit.cloud/coreysparks/content/01a112a7-a4d2-7ca1-eb18-af7a3d4c5f27/history"
-deployed_at = "2026-10-06T19:19:06.990Z"
-bundle_id = "01a112a7-a4d2-da5e-65e5-1a6a5610da98"
+deployed_at = "2026-10-06T19:23:11.250Z"
+bundle_id = "01a112ab-447a-b5e0-69e3-5dfbe4be244d"
 files = [
     ".posit/publish/county_race_ethnicity_explorer-P4FQ.toml",
     ".posit/publish/deployments/deployment-94QV.toml",
     "app.R",
+    "data/acs_profile_lookup.csv",
+    "data/processed/county_race_ethnicity_2009.parquet",
+    "data/processed/county_race_ethnicity_2010.parquet",
+    "data/processed/county_race_ethnicity_2011.parquet",
+    "data/processed/county_race_ethnicity_2012.parquet",
+    "data/processed/county_race_ethnicity_2013.parquet",
+    "data/processed/county_race_ethnicity_2014.parquet",
+    "data/processed/county_race_ethnicity_2015.parquet",
+    "data/processed/county_race_ethnicity_2016.parquet",
+    "data/processed/county_race_ethnicity_2017.parquet",
+    "data/processed/county_race_ethnicity_2018.parquet",
+    "data/processed/county_race_ethnicity_2019.parquet",
+    "data/processed/county_race_ethnicity_2020.parquet",
+    "data/processed/county_race_ethnicity_2021.parquet",
+    "data/processed/county_race_ethnicity_2022.parquet",
+    "data/processed/county_race_ethnicity_2023.parquet",
+    "data/processed/county_race_ethnicity_2024.parquet",
 ]
 
 [connect_cloud]
@@ -28,6 +45,8 @@ entrypoint = "app.R"
 title = "county_race_ethnicity_explorer"
 files = [
     "/app.R",
+    "/data/acs_profile_lookup.csv",
+    "/data/processed/*.parquet",
     "/.posit/publish/county_race_ethnicity_explorer-P4FQ.toml",
     "/.posit/publish/deployments/deployment-94QV.toml",
 ]
@@ -4486,9 +4505,4 @@ needs_compilation = "yes"
 author = "Hadley Wickham [cre] (ORCID: <https://orcid.org/0000-0003-4757-117X>), Shawn Garbett [ctb] (ORCID: <https://orcid.org/0000-0003-4079-5621>), Jeremy Stephens [aut, ctb], Kirill Simonov [aut], Yihui Xie [ctb] (ORCID: <https://orcid.org/0000-0003-0645-5666>), Zhuoer Dong [ctb], Jeffrey Horner [ctb], reikoch [ctb], Will Beasley [ctb] (ORCID: <https://orcid.org/0000-0002-5613-5006>), Brendan O'Connor [ctb], Michael Quinn [ctb], Charlie Gao [ctb], Gregory R. Warnes [ctb], Zhian N. Kamvar [ctb]"
 maintainer = "Hadley Wickham <hadley@posit.co>"
 repository = "CRAN"
-
-[deployment_error]
-code = "deployFailed"
-message = "Runtime error: Unable to start the app due to a runtime error. Please check the logs for more information."
-operation = "publish"
 
